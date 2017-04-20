@@ -6,7 +6,7 @@
 #define SIM_ENV_H
 
 // STL imports
-#include <shared_ptr>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -19,11 +19,20 @@ namespace sim_env {
         Object, Robot
     };
 
+    class World;
+    typedef std::shared_ptr<World> WorldPtr;
+    typedef std::shared_ptr<const World> WorldConstPtr;
+
+    class Object;
+    typedef std::shared_ptr<Object> ObjectPtr;
+    typedef std::shared_ptr<const Object> ObjectConstPtr;
+
+    class Robot;
+    typedef std::shared_ptr<Robot> RobotPtr;
+    typedef std::shared_ptr<const Robot> RobotConstPtr;
+
     class Object {
     public:
-        /* Typedefs for shared pointers on this class */
-        typedef std::shared_ptr<Object> Ptr;
-        typedef std::shared_ptr<const Object> ConstPtr;
 
         /**
          * Returns the unique name of this object.
@@ -53,13 +62,13 @@ namespace sim_env {
          * Returns the world object that this object belongs to.
          * @return the world
          */
-        virtual World::Ptr getWorld() const = 0;
+        virtual WorldPtr getWorld() const = 0;
 
         /**
          * Returns the (constant) world object that this object belongs to.
          * @return the world
          */
-        virtual World::ConstPtr getConstWorld() const = 0;
+        virtual WorldConstPtr getConstWorld() const = 0;
 
         // TODO other collision checks?
         /**
@@ -67,14 +76,14 @@ namespace sim_env {
          * @param other_object the object to check collision with.
          * @return True if objects are colliding, else False
          */
-        virtual bool checkCollision(Object::ConstPtr other_object) const = 0;
+        virtual bool checkCollision(ObjectConstPtr other_object) const = 0;
 
         /**
          * Checks whether this object collides with any of the given objects.
          * @param object_list list of objects to check collisions with
          * @return True if this object collides with any of the given objects, else False
          */
-        virtual bool checkCollision(const std::vector<Object::ConstPtr>& object_list) const = 0;
+        virtual bool checkCollision(const std::vector<ObjectConstPtr>& object_list) const = 0;
 
         /**
          * Set the active degrees of freedom for this object.
@@ -127,28 +136,23 @@ namespace sim_env {
 
     class Robot : public Object {
     public:
-        /* Typedefs for shared pointers on this class */
-        typedef std::shared_ptr<Robot> Ptr;
-        typedef std::shared_ptr<const Robot> ConstPtr;
 
     };
 
     class WorldViewer {
     public:
-        /* Typedefs for shared pointers on this class */
-        typedef std::shared_ptr<WorldViewer> Ptr;
-        typedef std::shared_ptr<const WorldViewer> ConstPtr;
 
         //TODO define all drawing functions here; provide support for setting colors and width
         virtual void drawFrame(const Eigen::Vector3d& transform) = 0;
 
     };
 
+    /* Typedefs for shared pointers on this class */
+    typedef std::shared_ptr<WorldViewer> WorldViewerPtr;
+    typedef std::shared_ptr<const WorldViewer> WorldViewerConstPtr;
+
     class World {
     public:
-        /* Typedefs for shared pointers on this class */
-        typedef std::shared_ptr<World> Ptr;
-        typedef std::shared_ptr<const World> ConstPtr;
         /**
          * Loads the world from the given file.
          * Note, that the supported file formats depend on the underlying implementation.
@@ -161,27 +165,27 @@ namespace sim_env {
          * @param name The unique name of the robot to return
          * @return Pointer to the robot with given name or nullptr if not available
          */
-        virtual Robot::Ptr getRobot(const std::string& name) const = 0;
+        virtual RobotPtr getRobot(const std::string& name) const = 0;
 
         /**
          * Returns the object with given name, if available.
          * @param name The unique name of the object to return
          * @return Pointer to the object with given name or nullptr if not available
          */
-        virtual Object::Ptr getObject(const std::string& name) const = 0;
+        virtual ObjectPtr getObject(const std::string& name) const = 0;
 
         /**
          * Returns all objects stored in the world.
          * @param objects List to fill with objects. The list is not cleared.
          * @param exclude_robots Flag whether to include or exclude robots.
          */
-        virtual void getObjects(std::vector<Object::Ptr>& objects, bool exclude_robots=False) const = 0;
+        virtual void getObjects(std::vector<ObjectPtr>& objects, bool exclude_robots=false) const = 0;
 
         /**
          * Returns all robots stored in the world.
          * @param objects List to fill with objects. The list is not cleared.
          */
-        virtual void getRobots(std::vector<Robot::Ptr>& robots) const = 0;
+        virtual void getRobots(std::vector<RobotPtr>& robots) const = 0;
 
         /**
          * If the underlying world representation supports physics simulation,
@@ -212,7 +216,7 @@ namespace sim_env {
          * This function may also internally create the viewer first.
          * @return shared pointer to a world viewer showing this world.
          */
-        virtual WorldViewer::Ptr getViewer() = 0;
+        virtual WorldViewerPtr getViewer() = 0;
 
     };
 }
