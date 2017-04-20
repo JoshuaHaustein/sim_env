@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<package>
+  <name>sim_env</name>
+  <version>0.0.1</version>
+  <description>The sim_env package contains an interface definition for
+  robot simulation environments. This interface is used by different planning
+  algorithms and allows exchanging the simulation environment, without
+  great modifications in the algorithms.
+  </description>
+
+  <maintainer email="haustein@kth.se">Joshua Haustein</maintainer>
+  <license>BSD</license>
+  <author email="haustein@kth.se">Joshua Haustein</author>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>Eigen</build_depend>
+
+</package>
