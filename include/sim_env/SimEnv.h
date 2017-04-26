@@ -9,19 +9,96 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <iostream>
+#include <mutex>
 
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
 
 namespace sim_env {
 
-    enum class SimEnvEntityType {
-        Object, Robot
+    class Logger;
+    typedef std::shared_ptr<Logger> LoggerPtr;
+    typedef std::shared_ptr<const Logger> LoggerConstPtr;
+
+    class Logger {
+    public:
+        enum class LogLevel {
+            Debug=0, Info=1, Warn=2, Error=3
+        };
+        virtual void setLevel(LogLevel lvl) = 0;
+        virtual LogLevel getLevel() = 0;
+        virtual void logErr(const std::string& msg, const std::string& prefix="") = 0;
+        virtual void logInfo(const std::string& msg, const std::string& prefix="") = 0;
+        virtual void logWarn(const std::string& msg, const std::string& prefix="") = 0;
+        virtual void logDebug(const std::string& msg, const std::string& prefix="") = 0;
+
+    };
+
+    class DefaultLogger : public Logger {
+    public:
+        DefaultLogger(const DefaultLogger& logger) = delete;
+        void operator=(const DefaultLogger& logger) = delete;
+
+        static LoggerPtr getInstance() {
+            // this is thread safe in C++11
+            static LoggerPtr pointer(new DefaultLogger());
+            return pointer;
+        }
+
+        void setLevel(LogLevel lvl) override {
+            _lvl = lvl;
+        }
+
+        LogLevel getLevel() override {
+            return _lvl;
+        }
+
+        void logErr(const std::string &msg, const std::string &prefix="") override {
+            std::lock_guard<std::mutex> lock(_mutex);
+            if (_lvl <= LogLevel::Error) {
+                std::cout << "\033[1;31m[Error] " << prefix << " " << msg << " \033[0m " << std::endl;
+            }
+        }
+
+        void logInfo(const std::string &msg, const std::string &prefix="") override {
+            std::lock_guard<std::mutex> lock(_mutex);
+            if (_lvl <= LogLevel::Info) {
+                std::cout << "\033[1;32m[Info] " << prefix << " " << msg << " \033[0m " << std::endl;
+            }
+        }
+
+        void logWarn(const std::string &msg, const std::string &prefix="") override {
+            std::lock_guard<std::mutex> lock(_mutex);
+            if (_lvl <= LogLevel::Warn) {
+                std::cout << "\033[1;33m[Warning] " << prefix << " " << msg << " \033[0m " << std::endl;
+            }
+        }
+
+        void logDebug(const std::string &msg, const std::string &prefix="") override {
+            std::lock_guard<std::mutex> lock(_mutex);
+            if (_lvl <= LogLevel::Debug) {
+                std::cout << "\033[1;35m[Debug] " << prefix << " " << msg << " \033[0m " << std::endl;
+            }
+        }
+
+    private:
+        LogLevel _lvl;
+        DefaultLogger() : _lvl(LogLevel::Info) {}
+        std::mutex _mutex;
+    };
+
+    enum class EntityType {
+        Object, Robot, Joint, Link
     };
 
     class World;
     typedef std::shared_ptr<World> WorldPtr;
     typedef std::shared_ptr<const World> WorldConstPtr;
+
+    class Entity;
+    typedef std::shared_ptr<Entity> EntityPtr;
+    typedef std::shared_ptr<const Entity> EntityConstPtr;
 
     class Object;
     typedef std::shared_ptr<Object> ObjectPtr;
@@ -31,32 +108,60 @@ namespace sim_env {
     typedef std::shared_ptr<Robot> RobotPtr;
     typedef std::shared_ptr<const Robot> RobotConstPtr;
 
-    class Object {
-    public:
+    class Link;
+    typedef std::shared_ptr<Link> LinkPtr;
+    typedef std::shared_ptr<const Link> LinkConstPtr;
+
+    class Joint;
+    typedef std::shared_ptr<Joint> JointPtr;
+    typedef std::shared_ptr<const Joint> JointConstPtr;
+
+    class Collidable;
+    typedef std::shared_ptr<Collidable> CollidablePtr;
+    typedef std::shared_ptr<const Collidable> CollidableConstPtr;
+
+    /**
+     * Collidable is an interface for entities that support collisions checks, such as Links and Objects.
+     */
+    class Collidable {
+
+        // TODO other collision checks?
+        /**
+         * Checks whether this Collidable collides with the given Collidable.
+         * @param other the Collidable to check collision with.
+         * @return True if objects are colliding, else False
+         */
+        virtual bool checkCollision(CollidableConstPtr other) const = 0;
 
         /**
-         * Returns the unique name of this object.
-         * @return string representing this object's name.
+         * Checks whether this Collidable collides with any of the given Collidables..
+         * @param others list of Collidables to check collisions with
+         * @return True if this Collidable collides with any of the given Collidables, else False
+         */
+        virtual bool checkCollision(const std::vector<CollidableConstPtr>& others) const = 0;
+    };
+
+    /**
+     * Base class for any entity stored in a SimEnv World.
+     */
+    class Entity {
+        /**
+         * Returns the unique name of this entity.
+         * @return string representing this entity's name.
          */
         virtual std::string getName() const = 0;
 
         /**
-         * Returns the type of this object.
+         * Returns the type of this entity.
          * @return the type encoded as enum SimEnvEntityType
          */
-        virtual SimEnvEntityType getType() const = 0;
+        virtual EntityType getType() const = 0;
 
         /**
          * Returns the transform of this object in world frame.
          * @return Eigen::Affine3d representing the pose of this object in world frame.
          */
         virtual Eigen::Affine3d getTransform() const = 0;
-
-        /**
-         * Sets the transform of this object in world frame.
-         * @param tf Eigen::Affine3d representing the new pose of this object
-         */
-        virtual void setTransform(const Eigen::Affine3d& tf) = 0;
 
         /**
          * Returns the world object that this object belongs to.
@@ -69,21 +174,32 @@ namespace sim_env {
          * @return the world
          */
         virtual WorldConstPtr getConstWorld() const = 0;
+    };
 
-        // TODO other collision checks?
-        /**
-         * Checks whether this object collides with the given object.
-         * @param other_object the object to check collision with.
-         * @return True if objects are colliding, else False
-         */
-        virtual bool checkCollision(ObjectConstPtr other_object) const = 0;
+    class Link : public Collidable, Entity  {
+        // TODO what does a link provide
+    };
 
+    class Joint : public Entity {
+        enum JointType {
+            Revolute, Translational
+        };
+        virtual float getPosition() const = 0;
+        virtual void setPosition(float v) = 0;
+        virtual float getVelocity() const = 0;
+        virtual void setVelocity(float v) = 0;
+        // TODO do we need to set torques?
+        virtual unsigned int getIndex() const = 0;
+        virtual JointType getJointType() const = 0;
+    };
+
+    class Object : public Collidable, Entity {
+    public:
         /**
-         * Checks whether this object collides with any of the given objects.
-         * @param object_list list of objects to check collisions with
-         * @return True if this object collides with any of the given objects, else False
+         * Sets the transform of this object in world frame.
+         * @param tf Eigen::Affine3d representing the new pose of this object
          */
-        virtual bool checkCollision(const std::vector<ObjectConstPtr>& object_list) const = 0;
+        virtual void setTransform(const Eigen::Affine3d& tf) = 0;
 
         /**
          * Set the active degrees of freedom for this object.
@@ -218,6 +334,12 @@ namespace sim_env {
          */
         virtual WorldViewerPtr getViewer() = 0;
 
+        /**
+         * Returns an instance of the logger used in the context of this environment.
+         * This function may also internally create the logger first.
+         * @return shared pointer to a logger.
+         */
+        virtual LoggerPtr getLogger() = 0;
     };
 }
 
