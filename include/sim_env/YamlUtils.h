@@ -19,7 +19,7 @@ namespace YAML {
             Node node;
             int num_elements = matrix.cols() * matrix.rows();
             for (int i = 0; i < num_elements; ++i) {
-                node.push_back(matrix(i / matrix.cols(), i % matrix.rows()));
+                node.push_back(matrix(i / matrix.cols(), i % matrix.cols()));
             }
             return node;
         }
@@ -58,7 +58,7 @@ namespace YAML {
             }
             for (unsigned int r = 0; r < matrix.rows(); ++r) {
                 for (unsigned int c = 0; c < matrix.cols(); ++c) {
-                    matrix(r, c) = node[(int)(r * matrix.rows() + c)].as<_Scalar>();
+                    matrix(r, c) = node[(int)(r * matrix.cols() + c)].as<_Scalar>();
                 }
             }
             return true;
