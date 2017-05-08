@@ -15,6 +15,15 @@
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
 
+/**
+ * This header file contains the definition of SimEnv. The idea behind SimEnv is to provide
+ * a common interface for different robot simulators. This allows the development of planning
+ * algorithms that do not have any strong dependencies on the underlying simulator implementation.
+ * WARNING: Despite this, it is assumed that there is always only one SimEnv implementation used
+ * in a process at a time. In other words, you should not mix multiple simulator implementations.
+ * This means that implementations may, for instance, only provide collision checks with objects
+ * from the same simulator implementation. Technically, this breaks the inheritance contract.
+ */
 namespace sim_env {
 
     class Logger;
@@ -128,6 +137,7 @@ namespace sim_env {
         // TODO other collision checks?
         /**
          * Checks whether this Collidable collides with the given Collidable.
+         * @warning An implementation may assume that all passed Collidabales are certain implementations.
          * @param other the Collidable to check collision with.
          * @return True if objects are colliding, else False
          */
@@ -135,6 +145,7 @@ namespace sim_env {
 
         /**
          * Checks whether this Collidable collides with any of the given Collidables..
+         * @warning An implementation may assume that all passed Collidabales are certain implementations.
          * @param others list of Collidables to check collisions with
          * @return True if this Collidable collides with any of the given Collidables, else False
          */
@@ -145,11 +156,18 @@ namespace sim_env {
      * Base class for any entity stored in a SimEnv World.
      */
     class Entity {
+    public:
         /**
          * Returns the unique name of this entity.
          * @return string representing this entity's name.
          */
         virtual std::string getName() const = 0;
+
+        /**
+         * Sets a new name for this entity. Throws an exception if the name is not unique.
+         * @param name the new name
+         */
+        virtual void setName(const std::string& name) = 0;
 
         /**
          * Returns the type of this entity.
@@ -159,9 +177,9 @@ namespace sim_env {
 
         /**
          * Returns the transform of this object in world frame.
-         * @return Eigen::Affine3d representing the pose of this object in world frame.
+         * @return Eigen::Transform representing the pose of this object in world frame.
          */
-        virtual Eigen::Affine3d getTransform() const = 0;
+        virtual Eigen::Transform getTransform() const = 0;
 
         /**
          * Returns the world object that this object belongs to.
@@ -181,8 +199,9 @@ namespace sim_env {
     };
 
     class Joint : public Entity {
+    public:
         enum JointType {
-            Revolute, Translational
+            Revolute, Prismatic
         };
         virtual float getPosition() const = 0;
         virtual void setPosition(float v) = 0;
@@ -197,9 +216,9 @@ namespace sim_env {
     public:
         /**
          * Sets the transform of this object in world frame.
-         * @param tf Eigen::Affine3d representing the new pose of this object
+         * @param tf Eigen::Transform representing the new pose of this object
          */
-        virtual void setTransform(const Eigen::Affine3d& tf) = 0;
+        virtual void setTransform(const Eigen::Transform& tf) = 0;
 
         /**
          * Set the active degrees of freedom for this object.
@@ -248,6 +267,12 @@ namespace sim_env {
          */
         virtual void setDOFVelocities(const Eigen::VectorXd& values, const Eigen::VectorXi& indices=Eigen::VectorXi()) = 0;
 
+        /**
+         * Returns whether this object is static, i.e. not movable by any finite force.
+         * @return bool whether this object is static.
+         */
+        virtual bool isStatic() const = 0;
+
     };
 
     class Robot : public Object {
@@ -267,7 +292,7 @@ namespace sim_env {
     typedef std::shared_ptr<WorldViewer> WorldViewerPtr;
     typedef std::shared_ptr<const WorldViewer> WorldViewerConstPtr;
 
-    class World {
+    class World : public std::enable_shared_from_this {
     public:
         /**
          * Loads the world from the given file.
