@@ -28,7 +28,9 @@ namespace sim_env {
 
     class Logger;
     typedef std::shared_ptr<Logger> LoggerPtr;
+    typedef std::weak_ptr<Logger> LoggerWeakPtr;
     typedef std::shared_ptr<const Logger> LoggerConstPtr;
+    typedef std::weak_ptr<const Logger> LoggerConstWeakPtr;
 
     class Logger {
     public:
@@ -103,31 +105,45 @@ namespace sim_env {
 
     class World;
     typedef std::shared_ptr<World> WorldPtr;
+    typedef std::weak_ptr<World> WorldWeakPtr;
     typedef std::shared_ptr<const World> WorldConstPtr;
+    typedef std::weak_ptr<const World> WorldConstWeakPtr;
 
     class Entity;
     typedef std::shared_ptr<Entity> EntityPtr;
+    typedef std::weak_ptr<Entity> EntityWeakPtr;
     typedef std::shared_ptr<const Entity> EntityConstPtr;
+    typedef std::weak_ptr<const Entity> EntityConstWeakPtr;
 
     class Object;
     typedef std::shared_ptr<Object> ObjectPtr;
+    typedef std::weak_ptr<Object> ObjectWeakPtr;
     typedef std::shared_ptr<const Object> ObjectConstPtr;
+    typedef std::weak_ptr<const Object> ObjectConstWeakPtr;
 
     class Robot;
     typedef std::shared_ptr<Robot> RobotPtr;
+    typedef std::weak_ptr<Robot> RobotWeakPtr;
     typedef std::shared_ptr<const Robot> RobotConstPtr;
+    typedef std::weak_ptr<const Robot> RobotConstWeakPtr;
 
     class Link;
     typedef std::shared_ptr<Link> LinkPtr;
+    typedef std::weak_ptr<Link> LinkWeakPtr;
     typedef std::shared_ptr<const Link> LinkConstPtr;
+    typedef std::weak_ptr<const Link> LinkConstWeakPtr;
 
     class Joint;
     typedef std::shared_ptr<Joint> JointPtr;
+    typedef std::weak_ptr<Joint> JointWeakPtr;
     typedef std::shared_ptr<const Joint> JointConstPtr;
+    typedef std::weak_ptr<const Joint> JointConstWeakPtr;
 
     class Collidable;
     typedef std::shared_ptr<Collidable> CollidablePtr;
+    typedef std::weak_ptr<Collidable> CollidableWeakPtr;
     typedef std::shared_ptr<const Collidable> CollidableConstPtr;
+    typedef std::weak_ptr<const Collidable> CollidableConstWeakPtr;
 
     /**
      * Collidable is an interface for entities that support collisions checks, such as Links and Objects.
@@ -163,11 +179,6 @@ namespace sim_env {
          */
         virtual std::string getName() const = 0;
 
-        /**
-         * Sets a new name for this entity. Throws an exception if the name is not unique.
-         * @param name the new name
-         */
-        virtual void setName(const std::string& name) = 0;
 
         /**
          * Returns the type of this entity.
@@ -179,7 +190,7 @@ namespace sim_env {
          * Returns the transform of this object in world frame.
          * @return Eigen::Transform representing the pose of this object in world frame.
          */
-        virtual Eigen::Transform getTransform() const = 0;
+        virtual Eigen::Affine3f getTransform() const = 0;
 
         /**
          * Returns the world object that this object belongs to.
@@ -192,9 +203,16 @@ namespace sim_env {
          * @return the world
          */
         virtual WorldConstPtr getConstWorld() const = 0;
+
+    protected:
+        /**
+         * Sets a new name for this entity.
+         * @param name the new name
+         */
+        virtual void setName(const std::string& name) = 0;
     };
 
-    class Link : public Collidable, Entity  {
+    class Link : public Collidable, public Entity  {
         // TODO what does a link provide
     };
 
@@ -212,13 +230,13 @@ namespace sim_env {
         virtual JointType getJointType() const = 0;
     };
 
-    class Object : public Collidable, Entity {
+    class Object : public Collidable, public Entity {
     public:
         /**
          * Sets the transform of this object in world frame.
          * @param tf Eigen::Transform representing the new pose of this object
          */
-        virtual void setTransform(const Eigen::Transform& tf) = 0;
+        virtual void setTransform(const Eigen::Affine3f& tf) = 0;
 
         /**
          * Set the active degrees of freedom for this object.
@@ -246,26 +264,26 @@ namespace sim_env {
          * @param indices a vector containing which DoFs to return. It returns all, if the vector is empty.
          * @return vector containing the requested DoF positions.
          */
-        virtual Eigen::VectorXd getDOFPositions(const Eigen::VectorXi& indices=Eigen::VectorXi()) const = 0;
+        virtual Eigen::VectorXf getDOFPositions(const Eigen::VectorXi& indices=Eigen::VectorXi()) const = 0;
 
         /**
          * Set the current DoF position values of this object. Also see getDOFPositions.
          * @param indices a vector containing which DoFs to return. It returns all, if the vector is empty.
          */
-        virtual void setDOFPositions(const Eigen::VectorXd& values, const Eigen::VectorXi& indices=Eigen::VectorXi()) = 0;
+        virtual void setDOFPositions(const Eigen::VectorXf& values, const Eigen::VectorXi& indices=Eigen::VectorXi()) = 0;
 
         /**
          * Get the current DoF velocity values of this object.
          * @param indices a vector containing which DoF velocities to return. It returns all, if the vector is empty.
          * @return vector containing the requested DoF velocities.
          */
-        virtual Eigen::VectorXd getDOFVelocities(const Eigen::VectorXi& indices=Eigen::VectorXi()) const = 0;
+        virtual Eigen::VectorXf getDOFVelocities(const Eigen::VectorXi& indices=Eigen::VectorXi()) const = 0;
 
         /**
          * Set the current DoF velocity values of this object. Also see getDOFPositions.
          * @param indices a vector containing which DoF velocities to return. It returns all, if the vector is empty.
          */
-        virtual void setDOFVelocities(const Eigen::VectorXd& values, const Eigen::VectorXi& indices=Eigen::VectorXi()) = 0;
+        virtual void setDOFVelocities(const Eigen::VectorXf& values, const Eigen::VectorXi& indices=Eigen::VectorXi()) = 0;
 
         /**
          * Returns whether this object is static, i.e. not movable by any finite force.
@@ -273,6 +291,21 @@ namespace sim_env {
          */
         virtual bool isStatic() const = 0;
 
+        /**
+         * Retrieves all links of this object and adds them to the given list.
+         * @warning This method returns shared_ptrs. Do not store these references beyond the lifespan of this object.
+         * @param links a vector in which all links are stored (not reset).
+         */
+        virtual void getLinks(std::vector<LinkPtr> links) = 0;
+        virtual void getLinks(std::vector<LinkConstPtr> links) const = 0;
+
+        /**
+         * Retrieves all joints of this object and adds them to the given list.
+         * @warning This method returns shared_ptrs. Do not store these references beyond the lifespan of this object.
+         * @param joints a vector in which all joints are stored (not reset).
+         */
+        virtual void getJoints(std::vector<JointPtr> joints) = 0;
+        virtual void getJoints(std::vector<JointConstPtr> joints) const = 0;
     };
 
     class Robot : public Object {
@@ -284,7 +317,7 @@ namespace sim_env {
     public:
 
         //TODO define all drawing functions here; provide support for setting colors and width
-        virtual void drawFrame(const Eigen::Vector3d& transform) = 0;
+        virtual void drawFrame(const Eigen::Vector3f& transform) = 0;
 
     };
 
@@ -292,7 +325,7 @@ namespace sim_env {
     typedef std::shared_ptr<WorldViewer> WorldViewerPtr;
     typedef std::shared_ptr<const WorldViewer> WorldViewerConstPtr;
 
-    class World : public std::enable_shared_from_this {
+    class World { // public std::enable_shared_from_this<World>
     public:
         /**
          * Loads the world from the given file.
@@ -303,13 +336,15 @@ namespace sim_env {
 
         /**
          * Returns the robot with given name, if available.
+         * @warning This method returns a shared_ptr. Do not store this reference beyond the lifespan of this world.
          * @param name The unique name of the robot to return
          * @return Pointer to the robot with given name or nullptr if not available
          */
         virtual RobotPtr getRobot(const std::string& name) const = 0;
 
         /**
-         * Returns the object with given name, if available.
+         * Returns the object with given name, if available. Use getRobot to retrieve a robot.
+         * @warning This method returns a shared_ptr. Do not store this reference beyond the lifespan of this world.
          * @param name The unique name of the object to return
          * @return Pointer to the object with given name or nullptr if not available
          */
@@ -317,6 +352,7 @@ namespace sim_env {
 
         /**
          * Returns all objects stored in the world.
+         * @warning This method returns shared_ptrs. Do not store these references beyond the lifespan of this world.
          * @param objects List to fill with objects. The list is not cleared.
          * @param exclude_robots Flag whether to include or exclude robots.
          */
@@ -324,6 +360,7 @@ namespace sim_env {
 
         /**
          * Returns all robots stored in the world.
+         * @warning This method returns shared_ptrs. Do not store these references beyond the lifespan of this world.
          * @param objects List to fill with objects. The list is not cleared.
          */
         virtual void getRobots(std::vector<RobotPtr>& robots) const = 0;
@@ -345,7 +382,7 @@ namespace sim_env {
          * Sets the delta t (time) for the physics simulation.
          * @param physics_step Time in seconds to simulate per simulation step.
          */
-        virtual void setPhysicsTimeStep(double physics_step) = 0;
+        virtual void setPhysicsTimeStep(float physics_step) = 0;
 
         /**
          * Returns the currently set physics time step.

@@ -17,7 +17,7 @@ namespace YAML {
 
         static Node encode(const Eigen::Matrix< _Scalar, _Rows, _Cols>& matrix) {
             Node node;
-            int num_elements = matrix.cols() * matrix.rows();
+            long num_elements = matrix.cols() * matrix.rows();
             for (int i = 0; i < num_elements; ++i) {
                 node.push_back(matrix(i / matrix.cols(), i % matrix.cols()));
             }
@@ -25,7 +25,7 @@ namespace YAML {
         }
 
         static bool decode(const Node &node, Eigen::Matrix< _Scalar, _Rows, _Cols> &matrix) {
-            int num_elements = node.size();
+            size_t num_elements = node.size();
             sim_env::LoggerPtr logger = sim_env::DefaultLogger::getInstance();
             // The desired dimension is governed by _Rows and _Cols
             if (_Rows == Eigen::Dynamic && _Cols == Eigen::Dynamic) {
@@ -38,22 +38,22 @@ namespace YAML {
             // Check if we have dynamic rows and specified number of columns
             if (_Rows == Eigen::Dynamic) {
                 if (num_elements % _Cols != 0) {
-                    logger->logErr("Could not decode Eigen::Matrix. Number of elements is not a multiple \
-                                  of number of requested columns.", "sim_env/YamlUtils.h");
+                    logger->logErr("Could not decode Eigen::Matrix. Number of elements is not a multiple"
+                                   " of number of requested columns.", "sim_env/YamlUtils.h");
                     return false;
                 }
                 matrix.resize(num_elements / _Cols, Eigen::NoChange);
             } else if (_Cols == Eigen::Dynamic) {
                 if (num_elements % _Rows != 0) {
-                    logger->logErr("Could not decode Eigen::Matrix. Number of elements is not a multiple of number of \
-                                  requested rows.", "sim_env/YamlUtils.h");
+                    logger->logErr("Could not decode Eigen::Matrix. Number of elements is not a multiple of number of"
+                                   " requested rows.", "sim_env/YamlUtils.h");
                     return false;
                 }
                 matrix.resize(Eigen::NoChange, num_elements / _Rows);
             }
             if (num_elements != matrix.cols() * matrix.rows()) {
-                logger->logErr("Could not decode Eigen::Matrix. Number of elements in YAML node is not equal to the \
-                               number of requested matrix elements.", "sim_env/YamlUtils.h");
+                logger->logErr("Could not decode Eigen::Matrix. Number of elements in YAML node is not equal to the"
+                               " number of requested matrix elements.", "sim_env/YamlUtils.h");
                 return false;
             }
             for (unsigned int r = 0; r < matrix.rows(); ++r) {
