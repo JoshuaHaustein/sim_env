@@ -153,7 +153,7 @@ namespace sim_env {
         // TODO other collision checks?
         /**
          * Checks whether this Collidable collides with the given Collidable.
-         * @warning An implementation may assume that all passed Collidabales are certain implementations.
+         * @warning An implementation may assume that all passed Collidables are certain implementations.
          * @param other the Collidable to check collision with.
          * @return True if objects are colliding, else False
          */
@@ -261,27 +261,27 @@ namespace sim_env {
          * Get the current DoF position values of this object.
          * In case of a rigid object, this would be x,y,z,rx,ry,rz.
          * In case of a robot, this would additionally include all its joint positions.
-         * @param indices a vector containing which DoFs to return. It returns all, if the vector is empty.
+         * @param indices a vector containing which DoFs to return. It returns the active DoFs, if the vector is empty.
          * @return vector containing the requested DoF positions.
          */
         virtual Eigen::VectorXf getDOFPositions(const Eigen::VectorXi& indices=Eigen::VectorXi()) const = 0;
 
         /**
          * Set the current DoF position values of this object. Also see getDOFPositions.
-         * @param indices a vector containing which DoFs to return. It returns all, if the vector is empty.
+         * @param indices a vector containing which DoFs to return. It sets the active DoFs, if no indices are given.
          */
         virtual void setDOFPositions(const Eigen::VectorXf& values, const Eigen::VectorXi& indices=Eigen::VectorXi()) = 0;
 
         /**
          * Get the current DoF velocity values of this object.
-         * @param indices a vector containing which DoF velocities to return. It returns all, if the vector is empty.
+         * @param indices a vector containing which DoF velocities to return. It returns the active DoFs, if the vector is empty.
          * @return vector containing the requested DoF velocities.
          */
         virtual Eigen::VectorXf getDOFVelocities(const Eigen::VectorXi& indices=Eigen::VectorXi()) const = 0;
 
         /**
          * Set the current DoF velocity values of this object. Also see getDOFPositions.
-         * @param indices a vector containing which DoF velocities to return. It returns all, if the vector is empty.
+         * @param indices a vector containing which DoF velocities to return. It sets the active DoFs, if the vector is empty.
          */
         virtual void setDOFVelocities(const Eigen::VectorXf& values, const Eigen::VectorXi& indices=Eigen::VectorXi()) = 0;
 
@@ -298,6 +298,8 @@ namespace sim_env {
          */
         virtual void getLinks(std::vector<LinkPtr> links) = 0;
         virtual void getLinks(std::vector<LinkConstPtr> links) const = 0;
+        virtual LinkPtr getLink(const std::string& link_name) = 0;
+        virtual LinkConstPtr getConstLink(const std::string& link_name) const = 0;
 
         /**
          * Retrieves all joints of this object and adds them to the given list.
@@ -306,6 +308,8 @@ namespace sim_env {
          */
         virtual void getJoints(std::vector<JointPtr> joints) = 0;
         virtual void getJoints(std::vector<JointConstPtr> joints) const = 0;
+        virtual JointPtr getJoint(const std::string& joint_name) = 0;
+        virtual JointConstPtr getConstJoint(const std::string& joint_name) const = 0;
     };
 
     class Robot : public Object {
@@ -356,7 +360,7 @@ namespace sim_env {
          * @param objects List to fill with objects. The list is not cleared.
          * @param exclude_robots Flag whether to include or exclude robots.
          */
-        virtual void getObjects(std::vector<ObjectPtr>& objects, bool exclude_robots=false) const = 0;
+        virtual void getObjects(std::vector<ObjectPtr>& objects, bool exclude_robots=true) const = 0;
 
         /**
          * Returns all robots stored in the world.
