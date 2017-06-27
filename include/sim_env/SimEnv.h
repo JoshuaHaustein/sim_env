@@ -38,11 +38,12 @@ namespace sim_env {
             Debug=0, Info=1, Warn=2, Error=3
         };
         virtual void setLevel(LogLevel lvl) = 0;
-        virtual LogLevel getLevel() = 0;
-        virtual void logErr(const std::string& msg, const std::string& prefix="") = 0;
-        virtual void logInfo(const std::string& msg, const std::string& prefix="") = 0;
-        virtual void logWarn(const std::string& msg, const std::string& prefix="") = 0;
-        virtual void logDebug(const std::string& msg, const std::string& prefix="") = 0;
+        virtual LogLevel getLevel() const = 0;
+        virtual void logErr(const std::string& msg, const std::string& prefix="") const = 0;
+        virtual void logInfo(const std::string& msg, const std::string& prefix="") const = 0;
+        virtual void logWarn(const std::string& msg, const std::string& prefix="") const = 0;
+        virtual void logDebug(const std::string& msg, const std::string& prefix="") const = 0;
+        virtual void log(const std::string& msg, LogLevel level, const std::string& prefix="") const = 0;
 
     };
 
@@ -61,42 +62,59 @@ namespace sim_env {
             _lvl = lvl;
         }
 
-        LogLevel getLevel() override {
+        LogLevel getLevel() const override {
             return _lvl;
         }
 
-        void logErr(const std::string &msg, const std::string &prefix="") override {
+        void logErr(const std::string &msg, const std::string &prefix="") const override {
             std::lock_guard<std::mutex> lock(_mutex);
             if (_lvl <= LogLevel::Error) {
                 std::cout << "\033[1;31m[Error] " << prefix << " " << msg << " \033[0m " << std::endl;
             }
         }
 
-        void logInfo(const std::string &msg, const std::string &prefix="") override {
+        void logInfo(const std::string &msg, const std::string &prefix="") const override {
             std::lock_guard<std::mutex> lock(_mutex);
             if (_lvl <= LogLevel::Info) {
                 std::cout << "\033[1;32m[Info] " << prefix << " " << msg << " \033[0m " << std::endl;
             }
         }
 
-        void logWarn(const std::string &msg, const std::string &prefix="") override {
+        void logWarn(const std::string &msg, const std::string &prefix="") const override {
             std::lock_guard<std::mutex> lock(_mutex);
             if (_lvl <= LogLevel::Warn) {
                 std::cout << "\033[1;33m[Warning] " << prefix << " " << msg << " \033[0m " << std::endl;
             }
         }
 
-        void logDebug(const std::string &msg, const std::string &prefix="") override {
+        void logDebug(const std::string &msg, const std::string &prefix="") const override {
             std::lock_guard<std::mutex> lock(_mutex);
             if (_lvl <= LogLevel::Debug) {
                 std::cout << "\033[1;35m[Debug] " << prefix << " " << msg << " \033[0m " << std::endl;
             }
         }
 
+        void log(const std::string& msg, LogLevel level, const std::string &prefix="") const override {
+            switch (level) {
+                case LogLevel::Info:
+                    logInfo(msg, prefix);
+                    break;
+                case LogLevel::Error:
+                    logErr(msg, prefix);
+                    break;
+                case LogLevel::Debug:
+                    logDebug(msg, prefix);
+                    break;
+                case LogLevel::Warn:
+                    logWarn(msg, prefix);
+                    break;
+            }
+        }
+
     private:
         LogLevel _lvl;
         DefaultLogger() : _lvl(LogLevel::Info) {}
-        std::mutex _mutex;
+        mutable std::mutex _mutex;
     };
 
     enum class EntityType {
@@ -374,7 +392,7 @@ namespace sim_env {
          * this function issues a physics simulation step.
          * @param steps number of physics time steps to simulate.
          */
-        virtual void stepPhysics(int steps=1) const = 0;
+        virtual void stepPhysics(int steps=1) = 0;
 
         /**
          * Returns whether the underlying world representation supports physics simulation or not.
