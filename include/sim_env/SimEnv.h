@@ -276,6 +276,11 @@ namespace sim_env {
         virtual Eigen::VectorXi getDOFIndices() = 0;
 
         /**
+         * Returns the total number of degrees of freedom this object has.
+         * @return maximal number of degrees of freedom.
+         */
+        virtual unsigned int getNumDOFs() const = 0;
+        /**
          * Get the current DoF position values of this object.
          * In case of a rigid object, this would be x,y,z,rx,ry,rz.
          * In case of a robot, this would additionally include all its joint positions.
@@ -314,18 +319,24 @@ namespace sim_env {
          * @warning This method returns shared_ptrs. Do not store these references beyond the lifespan of this object.
          * @param links a vector in which all links are stored (not reset).
          */
-        virtual void getLinks(std::vector<LinkPtr> links) = 0;
-        virtual void getLinks(std::vector<LinkConstPtr> links) const = 0;
+        virtual void getLinks(std::vector<LinkPtr>& links) = 0;
+        virtual void getLinks(std::vector<LinkConstPtr>& links) const = 0;
         virtual LinkPtr getLink(const std::string& link_name) = 0;
         virtual LinkConstPtr getConstLink(const std::string& link_name) const = 0;
+        /**
+         * Returns the base link of the object. The base link is the root of any kinematic chain
+         * of the object.
+         * @return base link
+         */
+        virtual LinkPtr getBaseLink() = 0;
 
         /**
          * Retrieves all joints of this object and adds them to the given list.
          * @warning This method returns shared_ptrs. Do not store these references beyond the lifespan of this object.
          * @param joints a vector in which all joints are stored (not reset).
          */
-        virtual void getJoints(std::vector<JointPtr> joints) = 0;
-        virtual void getJoints(std::vector<JointConstPtr> joints) const = 0;
+        virtual void getJoints(std::vector<JointPtr>& joints) = 0;
+        virtual void getJoints(std::vector<JointConstPtr>& joints) const = 0;
         virtual JointPtr getJoint(const std::string& joint_name) = 0;
         virtual JointConstPtr getConstJoint(const std::string& joint_name) const = 0;
     };
