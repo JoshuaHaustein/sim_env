@@ -232,6 +232,8 @@ namespace sim_env {
 
     class Link : public Collidable, public Entity  {
         // TODO what does a link provide
+        virtual ObjectPtr getObject() const = 0;
+        virtual ObjectConstPtr getConstObject() const = 0;
     };
 
     class Joint : public Entity {
@@ -246,6 +248,10 @@ namespace sim_env {
         // TODO do we need to set torques?
         virtual unsigned int getIndex() const = 0;
         virtual JointType getJointType() const = 0;
+        virtual LinkPtr getChildLink()  const = 0;
+        virtual LinkPtr getParentLink() const = 0;
+        virtual ObjectPtr getObject() const = 0;
+        virtual ObjectConstPtr getConstObject() const = 0;
     };
 
     class Object : public Collidable, public Entity {
@@ -350,7 +356,7 @@ namespace sim_env {
     public:
 
         //TODO define all drawing functions here; provide support for setting colors and width
-        virtual void drawFrame(const Eigen::Vector3f& transform) = 0;
+        virtual void drawFrame(const Eigen::Affine3f& transform, float length=1.0f, float width=0.1f) = 0;
 
     };
 
@@ -376,12 +382,12 @@ namespace sim_env {
         virtual RobotPtr getRobot(const std::string& name) const = 0;
 
         /**
-         * Returns the object with given name, if available. Use getRobot to retrieve a robot.
+         * Returns the object with given name, if available. Use getRobot or set exclude_robot to false to retrieve a robot.
          * @warning This method returns a shared_ptr. Do not store this reference beyond the lifespan of this world.
          * @param name The unique name of the object to return
          * @return Pointer to the object with given name or nullptr if not available
          */
-        virtual ObjectPtr getObject(const std::string& name) const = 0;
+        virtual ObjectPtr getObject(const std::string& name, bool exclude_robot=true) const = 0;
 
         /**
          * Returns all objects stored in the world.
