@@ -252,6 +252,8 @@ namespace sim_env {
         virtual LinkPtr getParentLink() const = 0;
         virtual ObjectPtr getObject() const = 0;
         virtual ObjectConstPtr getConstObject() const = 0;
+        virtual Eigen::Array2f getPositionLimits() const = 0;
+        virtual Eigen::Array2f getVelocityLimits() const = 0;
     };
 
     class Object : public Collidable, public Entity {
@@ -296,6 +298,14 @@ namespace sim_env {
         virtual Eigen::VectorXf getDOFPositions(const Eigen::VectorXi& indices=Eigen::VectorXi()) const = 0;
 
         /**
+         * Get the dof position limits of this object.
+         * If a DoF is unlimited, the corresponding limits are (std::numeric_limits<float>::min(), std::numeric_limits<float>::max())
+         * @param indices a vector containing which limits to return. It returns the limits of the active DoFs, if the vector is empty.
+         * @return array containing the limits, where each row is a pair (min, max)
+         */
+        virtual Eigen::ArrayX2f getDOFPositionLimits(const Eigen::VectorXi& indices=Eigen::VectorXi()) const = 0;
+
+        /**
          * Set the current DoF position values of this object. Also see getDOFPositions.
          * @param indices a vector containing which DoFs to return. It sets the active DoFs, if no indices are given.
          */
@@ -307,6 +317,14 @@ namespace sim_env {
          * @return vector containing the requested DoF velocities.
          */
         virtual Eigen::VectorXf getDOFVelocities(const Eigen::VectorXi& indices=Eigen::VectorXi()) const = 0;
+
+        /**
+         * Get the dof velocity limits of this object.
+         * If a DoF is unlimited, the corresponding limits are (std::numeric_limits<float>::min(), std::numeric_limits<float>::max())
+         * @param indices a vector containing which limits to return. It returns the limits of the active DoFs, if the vector is empty.
+         * @return array containing the limits, where each row is a pair (min, max)
+         */
+        virtual Eigen::ArrayX2f getDOFVelocityLimits(const Eigen::VectorXi& indices=Eigen::VectorXi()) const = 0;
 
         /**
          * Set the current DoF velocity values of this object. Also see getDOFPositions.
