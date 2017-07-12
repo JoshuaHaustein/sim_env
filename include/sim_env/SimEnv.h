@@ -444,7 +444,7 @@ namespace sim_env {
         /**
          * Returns the currently set physics time step.
          */
-        virtual void getPhysicsTimeStep() const = 0;
+        virtual float getPhysicsTimeStep() const = 0;
 
         /**
          * Returns an instance of graphical world viewer.
