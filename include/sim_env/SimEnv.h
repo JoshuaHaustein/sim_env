@@ -11,6 +11,7 @@
 #include <vector>
 #include <iostream>
 #include <mutex>
+#include <functional>
 
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
@@ -273,7 +274,7 @@ namespace sim_env {
         /**
          * Returns a list of the currently active degrees of freedom for this object.
          */
-        virtual Eigen::VectorXi getActiveDOFs() = 0;
+        virtual Eigen::VectorXi getActiveDOFs() const = 0;
 
         /**
          * Returns all degree of freedom indices this object has.
@@ -281,7 +282,7 @@ namespace sim_env {
          * where 0 - x, 1 - y, 2 - z, 3 - rx, 4 - ry, 5 - rz.
          * @return a list containing all indices for all degrees of freedom.
          */
-        virtual Eigen::VectorXi getDOFIndices() = 0;
+        virtual Eigen::VectorXi getDOFIndices() const = 0;
 
         /**
          * Returns the total number of degrees of freedom this object has.
@@ -367,7 +368,46 @@ namespace sim_env {
 
     class Robot : public Object {
     public:
-
+        /** The callback should have signature:
+        *   bool callback(const Eigen::VectorXf& positions, const Eigen::VectorXf& velocities, float timestep,
+        *                 RobotPtr robot, Eigen::VectorXf& output);
+        */
+        typedef std::function<bool(const Eigen::VectorXf&, const Eigen::VectorXf&, float, RobotConstPtr, Eigen::VectorXf&)> ControlCallback;
+        /**
+         * Register a controller callback. See typedef of ControlCallback for details about the signature.
+         * The provided callback is called in every simulation step to apply controls (forces and torques)
+         * to the robot's degrees of freedom.
+         * @param controll_fn callback function with signature ControlCallback that
+         */
+        virtual void setController(ControlCallback controll_fn) = 0;
+//        /**
+//         * Control mode for degrees of freedom.
+//         * Effort = Force or Torque
+//         */
+//        enum ControlMode {
+//            Position, Velocity, Effort
+//        };
+//
+//        /**
+//         * Set target control value for the active degrees of freedom.
+//         * These controls are forwarded to the simulator during simulation. Note that there might be a PID controller
+//         * operating behind this interface. The interpretation of what the target values represent is set by the
+//         * control mode (@see setControlMode(..)).
+//         * @param target target values
+//         */
+//        virtual void commandControl(const Eigen::VectorXf& target) = 0;
+//
+//        /**
+//         * Sets the control mode of this robot. Also resets any internal controller state, if there is any.
+//         * @param control_mode
+//         */
+//        virtual void setControlMode(ControlMode control_mode) = 0;
+//
+//        /**
+//         * Returns the control mode of this robot.
+//         * @return  control mode of this robot
+//         */
+//        virtual ControlMode getControlMode() const = 0;
     };
 
     class WorldViewer {

@@ -27,8 +27,23 @@ find_package(Eigen 3.3 REQUIRED)
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
   INCLUDE_DIRS include test/include
-#  LIBRARIES sim_env
+  LIBRARIES sim_env
 #  CATKIN_DEPENDS other_catkin_pkg
   DEPENDS Eigen
 )
 
+# BUILD
+
+set(CMAKE_CXX_COMPILER /usr/bin/clang++)
+set(CMAKE_CXX_STANDARD 11)
+add_definitions(-std=c++11)
+add_definitions(-Wno-deprecated-register)
+
+include_directories(include
+        ${Eigen_INCLUDE_DIRS}
+        ${catkin_INCLUDE_DIRS}
+        ${Boost_INCLUDE_DIRS})
+set(SOURCE_FILES
+        src/sim_env/Controller.cpp)
+add_library(sim_env
+        ${SOURCE_FILES})
