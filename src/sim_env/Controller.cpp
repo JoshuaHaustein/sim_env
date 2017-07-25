@@ -197,24 +197,33 @@ RobotPositionController::RobotPositionController(RobotPtr robot):
 RobotPositionController::~RobotPositionController() {
 }
 
-void RobotPositionController::setTargetPosition(Eigen::VectorXf &position) {
+void RobotPositionController::setTargetPosition(const Eigen::VectorXf& position) {
     if (_robot.expired()) {
         LoggerPtr logger = DefaultLogger::getInstance();
         logger->logErr("Can not access underlying robot; the pointer is not valid anymore!",
                        "[sim_env::RobotPositionController::setTargetPosition]");
     }
+    RobotPtr robot = _robot.lock();
+    LoggerPtr logger = robot->getWorld()->getLogger();
+    std::stringstream ss;
+    ss << "Setting target position " << position.transpose();
+    logger->logDebug(ss.str(), "[sim_env::RobotPositionController::setTargetPosition]");
     _pid_controller.setStateDimension((unsigned int) position.size());
     _pid_controller.setTarget(position);
 }
 
 bool RobotPositionController::control(const Eigen::VectorXf &positions, const Eigen::VectorXf &velocities,
-                                      float timestep, RobotConstPtr robot, Eigen::VectorXf &output) {
+                                      float timestep, RobotConstPtr robot,
+                                      Eigen::VectorXf &output) {
     Eigen::VectorXf target_position;
     _pid_controller.getTarget(target_position);
     if (target_position.size() != robot->getActiveDOFs().size()) {
         LoggerPtr logger = robot->getWorld()->getLogger();
         logger->logErr("The provided target position has different dimension from the active DOFs."
                        "[sim_env::RobotPositionController::setTargetPosition]");
+        std::stringstream ss;
+        ss << "target size is " << target_position.size() << " active dof size is " << robot->getNumActiveDOFs();
+        logger->logErr(ss.str());
         return false;
     }
     _pid_controller.control(output, positions);
@@ -230,18 +239,19 @@ RobotVelocityController::RobotVelocityController(RobotPtr robot):
 RobotVelocityController::~RobotVelocityController() {
 }
 
-void RobotVelocityController::setTargetVelocity(Eigen::VectorXf &velocity) {
+void RobotVelocityController::setTargetVelocity(const Eigen::VectorXf &velocity) {
     if (_robot.expired()) {
         LoggerPtr logger = DefaultLogger::getInstance();
         logger->logErr("Can not access underlying robot; the pointer is not valid anymore!",
-                       "[sim_env::RobotVelocityController::setTargetPosition]");
+                       "[sim_env::RobotVelocityController::setTargetVelocity]");
     }
     _pid_controller.setStateDimension((unsigned int) velocity.size());
     _pid_controller.setTarget(velocity);
 }
 
 bool RobotVelocityController::control(const Eigen::VectorXf &positions, const Eigen::VectorXf &velocities,
-                                      float timestep, RobotConstPtr robot, Eigen::VectorXf &output) {
+                                      float timestep, RobotConstPtr robot,
+                                      Eigen::VectorXf &output) {
     Eigen::VectorXf target_velocity;
     _pid_controller.getTarget(target_velocity);
     if (target_velocity.size() != robot->getActiveDOFs().size()) {

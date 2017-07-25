@@ -34,6 +34,18 @@ namespace sim_env {
     typedef std::weak_ptr<IndependentMDPIDController> IndependentMDPIDControllerWeakPtr;
     typedef std::weak_ptr<const IndependentMDPIDController> IndependentMDPIDControllerWeakConstPtr;
 
+    class RobotPositionController;
+    typedef std::shared_ptr<RobotPositionController> RobotPositionControllerPtr;
+    typedef std::shared_ptr<const RobotPositionController> RobotPositionControllerConstPtr;
+    typedef std::weak_ptr<RobotPositionController> RobotPositionControllerWeakPtr;
+    typedef std::weak_ptr<const RobotPositionController> RobotPositionControllerWeakConstPtr;
+
+    class RobotVelocityController;
+    typedef std::shared_ptr<RobotVelocityController> RobotVelocityControllerPtr;
+    typedef std::shared_ptr<const RobotVelocityController> RobotVelocityControllerConstPtr;
+    typedef std::weak_ptr<RobotVelocityController> RobotVelocityControllerWeakPtr;
+    typedef std::weak_ptr<const RobotVelocityController> RobotVelocityControllerWeakConstPtr;
+
     /**
      * Base-class for controllers for one-dimensional states.
      */
@@ -183,7 +195,7 @@ namespace sim_env {
     public:
         RobotPositionController(RobotPtr robot);
         ~RobotPositionController();
-        void setTargetPosition(Eigen::VectorXf& position);
+        void setTargetPosition(const Eigen::VectorXf& position);
         bool control(const Eigen::VectorXf& positions,
                      const Eigen::VectorXf& velocities,
                      float timestep,
@@ -202,7 +214,7 @@ namespace sim_env {
     public:
         RobotVelocityController(RobotPtr robot);
         ~RobotVelocityController();
-        void setTargetVelocity(Eigen::VectorXf& velocity);
+        void setTargetVelocity(const Eigen::VectorXf& velocity);
         bool control(const Eigen::VectorXf& positions,
                      const Eigen::VectorXf& velocities,
                      float timestep,

@@ -246,8 +246,20 @@ namespace sim_env {
         virtual void setPosition(float v) = 0;
         virtual float getVelocity() const = 0;
         virtual void setVelocity(float v) = 0;
-        // TODO do we need to set torques?
-        virtual unsigned int getIndex() const = 0;
+
+        /**
+         * Returns the joint index of this joint.
+         * @return joint index
+         */
+        virtual unsigned int getJointIndex() const = 0;
+
+        /**
+         * Returns the degree-of-freedom index of this joint.
+         * This may be different from the joint_index by some constant offset.
+         * @see Object::getJointDOF(..)
+         * @return joint index
+         */
+        virtual unsigned int getDOFIndex() const = 0;
         virtual JointType getJointType() const = 0;
         virtual LinkPtr getChildLink()  const = 0;
         virtual LinkPtr getParentLink() const = 0;
@@ -277,8 +289,13 @@ namespace sim_env {
         virtual Eigen::VectorXi getActiveDOFs() const = 0;
 
         /**
+         * Returns the number of active degrees of freedom.
+         */
+        virtual unsigned int getNumActiveDOFs() const = 0;
+
+        /**
          * Returns all degree of freedom indices this object has.
-         * For instance, if this object is a rigid body, this function returns [0,1,2,3,4,5],
+         * For instance, if this object is a non-static rigid body, this function returns [0,1,2,3,4,5],
          * where 0 - x, 1 - y, 2 - z, 3 - rx, 4 - ry, 5 - rz.
          * @return a list containing all indices for all degrees of freedom.
          */
@@ -289,6 +306,13 @@ namespace sim_env {
          * @return maximal number of degrees of freedom.
          */
         virtual unsigned int getNumDOFs() const = 0;
+
+        /**
+         * Returns the number of degrees of freedom for the pose of this object.
+         * @return 0 if this object is static, otherwise the number of DOFs for the pose of the object.
+         */
+        virtual unsigned int getNumBaseDOFs() const = 0;
+
         /**
          * Get the current DoF position values of this object.
          * In case of a rigid object, this would be x,y,z,rx,ry,rz.
@@ -362,8 +386,36 @@ namespace sim_env {
          */
         virtual void getJoints(std::vector<JointPtr>& joints) = 0;
         virtual void getJoints(std::vector<JointConstPtr>& joints) const = 0;
+
+        /**
+         * Retrieves the joint with the provided name.
+         * @param joint_name name of the joint to retrieve.
+         * @return valid pointer to joint with name joint_name, if it exists, else nullptr
+         */
         virtual JointPtr getJoint(const std::string& joint_name) = 0;
+
+        /**
+         * Retrieves the joint with the provided joint index.
+         * @param joint_index index of the joint to retrieve
+         * @return valid pointer to joint with index joint_idx, if it exists, else nullptr
+         */
+        virtual JointPtr getJoint(unsigned int joint_idx) = 0;
+
+        /**
+         * Retrieves the joint with the provided degree-of-freedom index.
+         * The degree-of-freedom index differs from the joint index if this object is
+         * not static. In this case the first 1 <= k <= 6 degrees of freedom describe
+         * the pose of the object, and all other indices > k describe joints.
+         * In other words, the relationship of degree-of-freedom index and joint index is:
+         * joint index = degree-of-freedom index + k
+         * where k is the number of free pose parameters (e.g x, y, orientation).
+         * @param joint_index index of the joint to retrieve
+         * @return valid pointer to joint with index joint_idx, if it exists, else nullptr
+         */
+        virtual JointPtr getJointFromDOFIndex(unsigned int dof_idx) = 0;
         virtual JointConstPtr getConstJoint(const std::string& joint_name) const = 0;
+        virtual JointConstPtr getConstJoint(unsigned int joint_idx) const = 0;
+        virtual JointConstPtr getConstJointFromDOFIndex(unsigned int dof_idx) const = 0;
     };
 
     class Robot : public Object {
@@ -372,7 +424,8 @@ namespace sim_env {
         *   bool callback(const Eigen::VectorXf& positions, const Eigen::VectorXf& velocities, float timestep,
         *                 RobotPtr robot, Eigen::VectorXf& output);
         */
-        typedef std::function<bool(const Eigen::VectorXf&, const Eigen::VectorXf&, float, RobotConstPtr, Eigen::VectorXf&)> ControlCallback;
+        typedef std::function<bool(const Eigen::VectorXf&, const Eigen::VectorXf&, float,
+                                   RobotConstPtr, Eigen::VectorXf&)> ControlCallback;
         /**
          * Register a controller callback. See typedef of ControlCallback for details about the signature.
          * The provided callback is called in every simulation step to apply controls (forces and torques)
