@@ -1,7 +1,8 @@
 //
 // Created by joshua on 7/13/17.
 //
-#include <sim_env/Controller.h>
+#include "sim_env/Controller.h"
+#include "sim_env/utils/EigenUtils.h"
 #include <cmath>
 
 using namespace sim_env;
@@ -36,8 +37,10 @@ void sim_env::PIDController::setGains(float kp, float ki, float kd) {
 }
 
 void sim_env::PIDController::setTarget(float target_state) {
-    reset();
-    _target = target_state;
+    if (target_state != _target) {
+        reset();
+        _target = target_state;
+    }
 }
 
 float sim_env::PIDController::getTarget() const {
@@ -56,7 +59,16 @@ float sim_env::PIDController::control(float current_state) {
     }
     _prev_error = error;
     _integral_part += error;
-    return _kp * error + _ki * _integral_part + _kd * delta_error;
+    float output = _kp * error + _ki * _integral_part + _kd * delta_error;
+    if (isTargetSatisfied(current_state, 0.001f)) {
+        auto logger = DefaultLogger::getInstance();
+        std::stringstream ss;
+        ss << "target is satisfied. output is " << output;
+        ss << "error is " << error << " current state is " << current_state;
+        ss << "kp: " << _kp << " ki" << _ki << "kd" << _kd;
+        logger->logDebug(ss.str());
+    }
+    return output;
 }
 
 void sim_env::PIDController::reset() {
@@ -66,6 +78,9 @@ void sim_env::PIDController::reset() {
 
 ////////////////////// IndependentMDPIDController //////////////////////////////
 IndependentMDPIDController::IndependentMDPIDController(float kp, float ki, float kd) {
+    _default_ki = ki;
+    _default_kp = kp;
+    _default_kd = kd;
     setGains(kp, ki, kd);
 }
 
@@ -90,7 +105,8 @@ void IndependentMDPIDController::getTarget(Eigen::VectorXf& target_state) const 
     }
 }
 
-void IndependentMDPIDController::control(Eigen::VectorXf &output, const Eigen::VectorXf &current_state) {
+void IndependentMDPIDController::control(Eigen::VectorXf &output,
+                                         const Eigen::VectorXf &current_state) {
     if (_controllers.size() != current_state.size()) {
         throw std::runtime_error("[sim_env::IndependentMDPIDController::control]"
                                  "Invalid input state dimension.");
@@ -184,13 +200,20 @@ unsigned int IndependentMDPIDController::getStateDimension() {
 }
 
 void IndependentMDPIDController::setStateDimension(unsigned int dim) {
-    _controllers.resize(dim);
-    reset();
+    if (dim != _controllers.size()) {
+        unsigned int prev_dim = (unsigned int) _controllers.size();
+        _controllers.resize(dim);
+        reset();
+        for (unsigned int i = prev_dim; i < _controllers.size(); ++i) {
+            _controllers.at(i).setGains(_default_kp, _default_ki, _default_kd);
+        }
+    }
 }
 
 ///////////////////////////// RobotPositionController ///////////////////////////////
 RobotPositionController::RobotPositionController(RobotPtr robot):
-        _pid_controller(0.01, 0.0001, 0.0),
+        _pid_controller(0.1, 0.0, 0.0),
+        _velocity_controller(robot),
         _robot(robot) {
 }
 
@@ -226,13 +249,17 @@ bool RobotPositionController::control(const Eigen::VectorXf &positions, const Ei
         logger->logErr(ss.str());
         return false;
     }
-    _pid_controller.control(output, positions);
+    Eigen::VectorXf target_velocities;
+    _pid_controller.control(target_velocities, positions);
+    // TODO compute what velocity we should maximally have to stop in time
+    _velocity_controller.setTargetVelocity(target_velocities);
+    _velocity_controller.control(positions, velocities, timestep, robot, output);
     return true;
 }
 
 ///////////////////////////// RobotVelocityController ///////////////////////////////
 RobotVelocityController::RobotVelocityController(RobotPtr robot):
-        _pid_controller(0.01, 0.0001, 0.0),
+        _pid_controller(10.0, 0.0, 0.0),
         _robot(robot) {
 }
 
@@ -245,8 +272,25 @@ void RobotVelocityController::setTargetVelocity(const Eigen::VectorXf &velocity)
         logger->logErr("Can not access underlying robot; the pointer is not valid anymore!",
                        "[sim_env::RobotVelocityController::setTargetVelocity]");
     }
-    _pid_controller.setStateDimension((unsigned int) velocity.size());
-    _pid_controller.setTarget(velocity);
+    RobotPtr robot = _robot.lock();
+    Eigen::VectorXf new_target = velocity;
+    LoggerPtr logger = robot->getWorld()->getLogger();
+    // scale the target velocity to limits
+    using namespace utils::eigen;
+    ScalingResult scaling_result = scaleToLimits(new_target, robot->getDOFVelocityLimits());
+    if (scaling_result == ScalingResult::Failure) {
+        logger->logWarn("Impossible target velocity direction detected. The requested velocity can not be scaled to the given limits",
+                        "[sim_env::RobotVelocityController::setTargetVelocity]");
+    } else if (scaling_result == ScalingResult::Scaled) {
+        logger->logWarn("Requested velocity is out of limits. Scaling it down.",
+                        "[sim_env::RobotVelocityController::setTargetVelocity]");
+    }
+    std::stringstream ss;
+    ss << "Setting target velocity " << new_target.transpose();
+    logger->logDebug(ss.str(), "[sim_env::RobotVelocityController::setTargetVelocity]");
+    // set the new target
+    _pid_controller.setStateDimension((unsigned int) new_target.size());
+    _pid_controller.setTarget(new_target);
 }
 
 bool RobotVelocityController::control(const Eigen::VectorXf &positions, const Eigen::VectorXf &velocities,
@@ -261,5 +305,19 @@ bool RobotVelocityController::control(const Eigen::VectorXf &positions, const Ei
         return false;
     }
     _pid_controller.control(output, velocities);
+    LoggerPtr logger = robot->getWorld()->getLogger();
+    std::stringstream ss;
+    ss << "Target velocities are " << target_velocity.transpose();
+    ss << " Current velocities are " << velocities.transpose();
+    logger->logDebug(ss.str());
+    // TODO limit efforts?
     return true;
+}
+
+LoggerPtr RobotVelocityController::getLogger() {
+    if (_robot.expired()) {
+        return DefaultLogger::getInstance();
+    }
+    RobotPtr robot = _robot.lock();
+    return robot->getWorld()->getLogger();
 }

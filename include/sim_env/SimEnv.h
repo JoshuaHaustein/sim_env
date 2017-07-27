@@ -231,6 +231,14 @@ namespace sim_env {
         virtual void setName(const std::string& name) = 0;
     };
 
+    struct DOFInformation {
+        // TODO maybe include DOF type information: rotational vs translational
+        unsigned int dof_index;
+        Eigen::Array2f position_limits; // [min, max]
+        Eigen::Array2f velocity_limits; // [min, max]
+        Eigen::Array2f acceleration_limits; // [min, max]
+    };
+
     class Link : public Collidable, public Entity  {
         // TODO what does a link provide
         virtual ObjectPtr getObject() const = 0;
@@ -266,7 +274,13 @@ namespace sim_env {
         virtual ObjectPtr getObject() const = 0;
         virtual ObjectConstPtr getConstObject() const = 0;
         virtual Eigen::Array2f getPositionLimits() const = 0;
+        virtual void getPositionLimits(Eigen::Array2f& limits) const = 0;
         virtual Eigen::Array2f getVelocityLimits() const = 0;
+        virtual void getVelocityLimits(Eigen::Array2f& limits) const = 0;
+        virtual Eigen::Array2f getAccelerationLimits() const = 0;
+        virtual void getAccelerationLimits(Eigen::Array2f& limits) const = 0;
+        virtual DOFInformation getDOFInformation() const = 0;
+        virtual void getDOFInformation(DOFInformation& info) const = 0;
     };
 
     class Object : public Collidable, public Entity {
@@ -314,6 +328,20 @@ namespace sim_env {
         virtual unsigned int getNumBaseDOFs() const = 0;
 
         /**
+         * Returns information on the specified degree of freedom.
+         * @param dof_index - index of the degree of freedom
+         * @return info
+         */
+        virtual DOFInformation getDOFInformation(unsigned int dof_index) const = 0;
+
+        /**
+         * Retrieves information on the specified degree of freedom.
+         * @param dof_index - index of the degree of freedom
+         * @param info - variable to store output in
+         */
+        virtual void getDOFInformation(unsigned int dof_index, DOFInformation& info) const = 0;
+
+        /**
          * Get the current DoF position values of this object.
          * In case of a rigid object, this would be x,y,z,rx,ry,rz.
          * In case of a robot, this would additionally include all its joint positions.
@@ -350,6 +378,14 @@ namespace sim_env {
          * @return array containing the limits, where each row is a pair (min, max)
          */
         virtual Eigen::ArrayX2f getDOFVelocityLimits(const Eigen::VectorXi& indices=Eigen::VectorXi()) const = 0;
+
+        /**
+         * Get the dof acceleration limits of this object.
+         * If a DoF is unlimited, the corresponding limits are (std::numeric_limits<float>::min(), std::numeric_limits<float>::max())
+         * @param indices a vector containing which limits to return. It returns the limits of the active DoFs, if the vector is empty.
+         * @return array containing the limits, where each row is a pair (min, max)
+         */
+        virtual Eigen::ArrayX2f getDOFAccelerationLimits(const Eigen::VectorXi& indices=Eigen::VectorXi()) const = 0;
 
         /**
          * Set the current DoF velocity values of this object. Also see getDOFPositions.
