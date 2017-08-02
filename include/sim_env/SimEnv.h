@@ -38,6 +38,7 @@ namespace sim_env {
         enum class LogLevel {
             Debug=0, Info=1, Warn=2, Error=3
         };
+        virtual ~Logger() = 0;
         virtual void setLevel(LogLevel lvl) = 0;
         virtual LogLevel getLevel() const = 0;
         virtual void logErr(const std::string& msg, const std::string& prefix="") const = 0;
@@ -45,7 +46,6 @@ namespace sim_env {
         virtual void logWarn(const std::string& msg, const std::string& prefix="") const = 0;
         virtual void logDebug(const std::string& msg, const std::string& prefix="") const = 0;
         virtual void log(const std::string& msg, LogLevel level, const std::string& prefix="") const = 0;
-
     };
 
     class DefaultLogger : public Logger {
@@ -168,7 +168,8 @@ namespace sim_env {
      * Collidable is an interface for entities that support collisions checks, such as Links and Objects.
      */
     class Collidable {
-
+    public:
+        virtual ~Collidable() = 0;
         // TODO other collision checks?
         /**
          * Checks whether this Collidable collides with the given Collidable.
@@ -192,6 +193,7 @@ namespace sim_env {
      */
     class Entity {
     public:
+        virtual ~Entity() = 0;
         /**
          * Returns the unique name of this entity.
          * @return string representing this entity's name.
@@ -241,8 +243,14 @@ namespace sim_env {
 
     class Link : public Collidable, public Entity  {
         // TODO what does a link provide
+    public:
+        virtual ~Link() = 0;
         virtual ObjectPtr getObject() const = 0;
         virtual ObjectConstPtr getConstObject() const = 0;
+        virtual void getChildJoints(std::vector<JointPtr>& child_joints) = 0;
+        virtual void getConstChildJoints(std::vector<JointConstPtr>& child_joints) const = 0;
+        virtual void getParentJoints(std::vector<JointPtr>& parent_joints) = 0;
+        virtual void getConstParentJoints(std::vector<JointConstPtr>& parent_joints) const = 0;
     };
 
     class Joint : public Entity {
@@ -250,6 +258,7 @@ namespace sim_env {
         enum JointType {
             Revolute, Prismatic
         };
+        virtual ~Joint() = 0;
         virtual float getPosition() const = 0;
         virtual void setPosition(float v) = 0;
         virtual float getVelocity() const = 0;
@@ -285,6 +294,7 @@ namespace sim_env {
 
     class Object : public Collidable, public Entity {
     public:
+        virtual ~Object() = 0;
         /**
          * Sets the transform of this object in world frame.
          * @param tf Eigen::Transform representing the new pose of this object
@@ -469,6 +479,7 @@ namespace sim_env {
          * @param controll_fn callback function with signature ControlCallback that
          */
         virtual void setController(ControlCallback controll_fn) = 0;
+        virtual ~Robot() = 0;
 //        /**
 //         * Control mode for degrees of freedom.
 //         * Effort = Force or Torque
@@ -513,6 +524,7 @@ namespace sim_env {
 
     class World { // public std::enable_shared_from_this<World>
     public:
+        virtual ~World() = 0;
         /**
          * Loads the world from the given file.
          * Note, that the supported file formats depend on the underlying implementation.

@@ -45,6 +45,7 @@ include_directories(include
         ${Boost_INCLUDE_DIRS})
 set(SOURCE_FILES
         src/sim_env/Controller.cpp
+        src/sim_env/SimEnv.cpp
         src/sim_env/utils/EigenUtils.cpp)
 add_library(sim_env
         ${SOURCE_FILES})

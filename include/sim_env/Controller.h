@@ -192,23 +192,17 @@ namespace sim_env {
     };
 
     /**
-     * Robot velocity controller - uses an Independent MDPIDController to control the velocity of a robot.
+     * Interface for robot velocity controller.
      */
     class RobotVelocityController {
     public:
-        RobotVelocityController(RobotPtr robot);
-        ~RobotVelocityController();
-        void setTargetVelocity(const Eigen::VectorXf& velocity);
-        bool control(const Eigen::VectorXf& positions,
-                     const Eigen::VectorXf& velocities,
-                     float timestep,
-                     RobotConstPtr robot,
-                     Eigen::VectorXf& output);
-        IndependentMDPIDController& getPIDController();
-    private:
-        LoggerPtr getLogger();
-        RobotWeakPtr _robot;
-        IndependentMDPIDController _pid_controller;
+        virtual ~RobotVelocityController() = 0;
+        virtual void setTargetVelocity(const Eigen::VectorXf& velocity) = 0;
+        virtual bool control(const Eigen::VectorXf& positions,
+                             const Eigen::VectorXf& velocities,
+                             float timestep,
+                             RobotConstPtr robot,
+                             Eigen::VectorXf& output) = 0;
     };
 
     /**
@@ -216,7 +210,7 @@ namespace sim_env {
      */
     class RobotPositionController {
     public:
-        RobotPositionController(RobotPtr robot);
+        RobotPositionController(RobotPtr robot, RobotVelocityControllerPtr velocity_controller);
         ~RobotPositionController();
         void setTargetPosition(const Eigen::VectorXf& position);
         bool control(const Eigen::VectorXf& positions,
@@ -228,7 +222,7 @@ namespace sim_env {
     private:
         RobotWeakPtr _robot;
         IndependentMDPIDController _pid_controller;
-        RobotVelocityController _velocity_controller;
+        RobotVelocityControllerPtr _velocity_controller;
     };
 
 }

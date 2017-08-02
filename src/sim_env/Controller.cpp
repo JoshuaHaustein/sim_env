@@ -60,14 +60,14 @@ float sim_env::PIDController::control(float current_state) {
     _prev_error = error;
     _integral_part += error;
     float output = _kp * error + _ki * _integral_part + _kd * delta_error;
-    if (isTargetSatisfied(current_state, 0.001f)) {
-        auto logger = DefaultLogger::getInstance();
-        std::stringstream ss;
-        ss << "target is satisfied. output is " << output;
-        ss << "error is " << error << " current state is " << current_state;
-        ss << "kp: " << _kp << " ki" << _ki << "kd" << _kd;
-        logger->logDebug(ss.str());
-    }
+//    if (isTargetSatisfied(current_state, 0.001f)) {
+//        auto logger = DefaultLogger::getInstance();
+//        std::stringstream ss;
+//        ss << "target is satisfied. output is " << output;
+//        ss << "error is " << error << " current state is " << current_state;
+//        ss << "kp: " << _kp << " ki" << _ki << "kd" << _kd;
+//        logger->logDebug(ss.str());
+//    }
     return output;
 }
 
@@ -211,9 +211,10 @@ void IndependentMDPIDController::setStateDimension(unsigned int dim) {
 }
 
 ///////////////////////////// RobotPositionController ///////////////////////////////
-RobotPositionController::RobotPositionController(RobotPtr robot):
-        _pid_controller(0.1, 0.0, 0.0),
-        _velocity_controller(robot),
+RobotPositionController::RobotPositionController(RobotPtr robot,
+                                                 RobotVelocityControllerPtr velocity_controller):
+        _pid_controller(1.0, 0.0, 0.0),
+        _velocity_controller(velocity_controller),
         _robot(robot) {
 }
 
@@ -249,75 +250,118 @@ bool RobotPositionController::control(const Eigen::VectorXf &positions, const Ei
         logger->logErr(ss.str());
         return false;
     }
-    Eigen::VectorXf target_velocities;
-    _pid_controller.control(target_velocities, positions);
-    // TODO compute what velocity we should maximally have to stop in time
-    _velocity_controller.setTargetVelocity(target_velocities);
-    _velocity_controller.control(positions, velocities, timestep, robot, output);
+    Eigen::VectorXf target_velocities(positions.size());
+//    _pid_controller.control(target_velocities, positions);
+    // TODO see whether we still can use a PID somehow
+    // TODO this is not moving in a straight line. we could make the decision on
+    // TODO whether to move in a straight line or not dependent on a parameter
+    Eigen::ArrayX2f velocity_limits = robot->getDOFVelocityLimits();
+    Eigen::ArrayX2f acceleration_limits = robot->getDOFAccelerationLimits();
+    Eigen::VectorXf delta_position = target_position - positions;
+    // TODO remove debug logger
+    LoggerPtr debug_logger = DefaultLogger::getInstance();
+    std::stringstream ss;
+    ss << "Position error: " << delta_position.transpose();
+    debug_logger->logDebug(ss.str());
+    for (int idx = 0; idx < delta_position.size(); ++idx) {
+        // first, command max velocity for each dof separately
+        float velocity_sign(1.0f);
+        if (std::signbit(delta_position[idx])) {
+            // need negative velocity
+            target_velocities[idx] = velocity_limits(idx, 0);
+            assert(std::signbit(target_velocities[idx]));
+            velocity_sign = -1.0f;
+        } else {
+            // need positive velocity
+            target_velocities[idx] = velocity_limits(idx, 1);
+            velocity_sign = 1.0f;
+        }
+        ss.str("");
+        ss << "max velocity " << target_velocities[idx] << " ";
+        // next compute the maximum velocity we can have to not overshoot
+        float abs_position_error = std::abs(delta_position[idx]);
+        float abs_max_break_accel = 0.0f;
+        if (std::signbit(velocities[idx])) {
+            abs_max_break_accel = std::abs(acceleration_limits(idx, 1));
+        } else {
+            abs_max_break_accel = std::abs(acceleration_limits(idx, 0));
+        }
+        float abs_max_break_velocity = std::sqrt(2.0f * abs_position_error * abs_max_break_accel);
+        ss << " abs_max_break_velocity " << abs_max_break_velocity << " ";
+        // finally, set the target velocity such maximal, but such that we do not overshoot.
+        target_velocities[idx] = velocity_sign * std::min(abs_max_break_velocity, std::abs(target_velocities[idx]));
+        ss << " target vel: " << target_velocities[idx];
+        debug_logger->logDebug(ss.str());
+    }
+    _velocity_controller->setTargetVelocity(target_velocities);
+    _velocity_controller->control(positions, velocities, timestep, robot, output);
     return true;
 }
 
 ///////////////////////////// RobotVelocityController ///////////////////////////////
-RobotVelocityController::RobotVelocityController(RobotPtr robot):
-        _pid_controller(10.0, 0.0, 0.0),
-        _robot(robot) {
-}
+//RobotVelocityController::RobotVelocityController(RobotPtr robot):
+//        _pid_controller(10.0, 0.0, 0.0),
+//        _robot(robot) {
+//}
 
-RobotVelocityController::~RobotVelocityController() {
-}
+RobotVelocityController::~RobotVelocityController() = default;
 
-void RobotVelocityController::setTargetVelocity(const Eigen::VectorXf &velocity) {
-    if (_robot.expired()) {
-        LoggerPtr logger = DefaultLogger::getInstance();
-        logger->logErr("Can not access underlying robot; the pointer is not valid anymore!",
-                       "[sim_env::RobotVelocityController::setTargetVelocity]");
-    }
-    RobotPtr robot = _robot.lock();
-    Eigen::VectorXf new_target = velocity;
-    LoggerPtr logger = robot->getWorld()->getLogger();
-    // scale the target velocity to limits
-    using namespace utils::eigen;
-    ScalingResult scaling_result = scaleToLimits(new_target, robot->getDOFVelocityLimits());
-    if (scaling_result == ScalingResult::Failure) {
-        logger->logWarn("Impossible target velocity direction detected. The requested velocity can not be scaled to the given limits",
-                        "[sim_env::RobotVelocityController::setTargetVelocity]");
-    } else if (scaling_result == ScalingResult::Scaled) {
-        logger->logWarn("Requested velocity is out of limits. Scaling it down.",
-                        "[sim_env::RobotVelocityController::setTargetVelocity]");
-    }
-    std::stringstream ss;
-    ss << "Setting target velocity " << new_target.transpose();
-    logger->logDebug(ss.str(), "[sim_env::RobotVelocityController::setTargetVelocity]");
-    // set the new target
-    _pid_controller.setStateDimension((unsigned int) new_target.size());
-    _pid_controller.setTarget(new_target);
-}
-
-bool RobotVelocityController::control(const Eigen::VectorXf &positions, const Eigen::VectorXf &velocities,
-                                      float timestep, RobotConstPtr robot,
-                                      Eigen::VectorXf &output) {
-    Eigen::VectorXf target_velocity;
-    _pid_controller.getTarget(target_velocity);
-    if (target_velocity.size() != robot->getActiveDOFs().size()) {
-        LoggerPtr logger = robot->getWorld()->getLogger();
-        logger->logErr("The provided target position has different dimension from the active DOFs."
-                               "[sim_env::RobotVelocityController::setTargetVelocity]");
-        return false;
-    }
-    _pid_controller.control(output, velocities);
-    LoggerPtr logger = robot->getWorld()->getLogger();
-    std::stringstream ss;
-    ss << "Target velocities are " << target_velocity.transpose();
-    ss << " Current velocities are " << velocities.transpose();
-    logger->logDebug(ss.str());
-    // TODO limit efforts?
-    return true;
-}
-
-LoggerPtr RobotVelocityController::getLogger() {
-    if (_robot.expired()) {
-        return DefaultLogger::getInstance();
-    }
-    RobotPtr robot = _robot.lock();
-    return robot->getWorld()->getLogger();
-}
+//void RobotVelocityController::setTargetVelocity(const Eigen::VectorXf &velocity) {
+//    if (_robot.expired()) {
+//        LoggerPtr logger = DefaultLogger::getInstance();
+//        logger->logErr("Can not access underlying robot; the pointer is not valid anymore!",
+//                       "[sim_env::RobotVelocityController::setTargetVelocity]");
+//    }
+//    RobotPtr robot = _robot.lock();
+//    Eigen::VectorXf new_target = velocity;
+//    LoggerPtr logger = robot->getWorld()->getLogger();
+//    // scale the target velocity to limits
+//    using namespace utils::eigen;
+//    ScalingResult scaling_result = scaleToLimits(new_target, robot->getDOFVelocityLimits());
+//    if (scaling_result == ScalingResult::Failure) {
+//        logger->logWarn("Impossible target velocity direction detected. The requested velocity can not be scaled to the given limits",
+//                        "[sim_env::RobotVelocityController::setTargetVelocity]");
+//    } else if (scaling_result == ScalingResult::Scaled) {
+//        logger->logWarn("Requested velocity is out of limits. Scaling it down.",
+//                        "[sim_env::RobotVelocityController::setTargetVelocity]");
+//    }
+//    std::stringstream ss;
+//    ss << "Setting target velocity " << new_target.transpose();
+//    logger->logDebug(ss.str(), "[sim_env::RobotVelocityController::setTargetVelocity]");
+//    // set the new target
+//    _pid_controller.setStateDimension((unsigned int) new_target.size());
+//    _pid_controller.setTarget(new_target);
+//}
+//
+//bool RobotVelocityController::control(const Eigen::VectorXf &positions, const Eigen::VectorXf &velocities,
+//                                      float timestep, RobotConstPtr robot,
+//                                      Eigen::VectorXf &output) {
+//    Eigen::VectorXf target_velocity;
+//    _pid_controller.getTarget(target_velocity);
+//    if (target_velocity.size() != robot->getActiveDOFs().size()) {
+//        LoggerPtr logger = robot->getWorld()->getLogger();
+//        logger->logErr("The provided target position has different dimension from the active DOFs."
+//                               "[sim_env::RobotVelocityController::setTargetVelocity]");
+//        return false;
+//    }
+//    _pid_controller.control(output, velocities);
+////    LoggerPtr logger = robot->getWorld()->getLogger();
+////    std::stringstream ss;
+////    ss << "Target velocities are " << target_velocity.transpose();
+////    ss << " Current velocities are " << velocities.transpose();
+////    logger->logDebug(ss.str());
+//    // TODO limit efforts?
+//    return true;
+//}
+//
+//IndependentMDPIDController& RobotVelocityController::getPIDController() {
+//   return _pid_controller;
+//}
+//
+//LoggerPtr RobotVelocityController::getLogger() {
+//    if (_robot.expired()) {
+//        return DefaultLogger::getInstance();
+//    }
+//    RobotPtr robot = _robot.lock();
+//    return robot->getWorld()->getLogger();
+//}
