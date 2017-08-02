@@ -258,11 +258,6 @@ bool RobotPositionController::control(const Eigen::VectorXf &positions, const Ei
     Eigen::ArrayX2f velocity_limits = robot->getDOFVelocityLimits();
     Eigen::ArrayX2f acceleration_limits = robot->getDOFAccelerationLimits();
     Eigen::VectorXf delta_position = target_position - positions;
-    // TODO remove debug logger
-    LoggerPtr debug_logger = DefaultLogger::getInstance();
-    std::stringstream ss;
-    ss << "Position error: " << delta_position.transpose();
-    debug_logger->logDebug(ss.str());
     for (int idx = 0; idx < delta_position.size(); ++idx) {
         // first, command max velocity for each dof separately
         float velocity_sign(1.0f);
@@ -276,8 +271,6 @@ bool RobotPositionController::control(const Eigen::VectorXf &positions, const Ei
             target_velocities[idx] = velocity_limits(idx, 1);
             velocity_sign = 1.0f;
         }
-        ss.str("");
-        ss << "max velocity " << target_velocities[idx] << " ";
         // next compute the maximum velocity we can have to not overshoot
         float abs_position_error = std::abs(delta_position[idx]);
         float abs_max_break_accel = 0.0f;
@@ -287,11 +280,8 @@ bool RobotPositionController::control(const Eigen::VectorXf &positions, const Ei
             abs_max_break_accel = std::abs(acceleration_limits(idx, 0));
         }
         float abs_max_break_velocity = std::sqrt(2.0f * abs_position_error * abs_max_break_accel);
-        ss << " abs_max_break_velocity " << abs_max_break_velocity << " ";
         // finally, set the target velocity such maximal, but such that we do not overshoot.
         target_velocities[idx] = velocity_sign * std::min(abs_max_break_velocity, std::abs(target_velocities[idx]));
-        ss << " target vel: " << target_velocities[idx];
-        debug_logger->logDebug(ss.str());
     }
     _velocity_controller->setTargetVelocity(target_velocities);
     _velocity_controller->control(positions, velocities, timestep, robot, output);
