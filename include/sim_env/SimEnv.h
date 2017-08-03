@@ -8,6 +8,7 @@
 // STL imports
 #include <memory>
 #include <string>
+#include <map>
 #include <vector>
 #include <iostream>
 #include <mutex>
@@ -172,12 +173,17 @@ namespace sim_env {
         virtual ~Collidable() = 0;
         // TODO other collision checks?
         /**
+         * Checks whether this Collidable collides with anything.
+         * @return True if this collidable collides with something
+         */
+        virtual bool checkCollision() = 0;
+        /**
          * Checks whether this Collidable collides with the given Collidable.
          * @warning An implementation may assume that all passed Collidables are certain implementations.
          * @param other the Collidable to check collision with.
          * @return True if objects are colliding, else False
          */
-        virtual bool checkCollision(CollidableConstPtr other) const = 0;
+        virtual bool checkCollision(CollidablePtr other) = 0;
 
         /**
          * Checks whether this Collidable collides with any of the given Collidables..
@@ -185,7 +191,7 @@ namespace sim_env {
          * @param others list of Collidables to check collisions with
          * @return True if this Collidable collides with any of the given Collidables, else False
          */
-        virtual bool checkCollision(const std::vector<CollidableConstPtr>& others) const = 0;
+        virtual bool checkCollision(const std::vector<CollidablePtr>& others) = 0;
     };
 
     /**
@@ -241,8 +247,7 @@ namespace sim_env {
         Eigen::Array2f acceleration_limits; // [min, max]
     };
 
-    class Link : public Collidable, public Entity  {
-        // TODO what does a link provide
+    class Link : public virtual Collidable, public virtual Entity  {
     public:
         virtual ~Link() = 0;
         virtual ObjectPtr getObject() const = 0;
@@ -253,7 +258,7 @@ namespace sim_env {
         virtual void getConstParentJoints(std::vector<JointConstPtr>& parent_joints) const = 0;
     };
 
-    class Joint : public Entity {
+    class Joint : public virtual Entity {
     public:
         enum JointType {
             Revolute, Prismatic
@@ -292,7 +297,14 @@ namespace sim_env {
         virtual void getDOFInformation(DOFInformation& info) const = 0;
     };
 
-    class Object : public Collidable, public Entity {
+    struct ObjectState {
+        Eigen::VectorXf dof_positions; // positions of ALL DOFs
+        Eigen::VectorXf dof_velocities; // velocities of ALL DOFs
+        Eigen::Affine3f pose; // pose/transform of the object
+        Eigen::VectorXi active_dofs; // currently active DOFs
+    };
+
+    class Object : public virtual Collidable, public virtual Entity {
     public:
         virtual ~Object() = 0;
         /**
@@ -367,6 +379,19 @@ namespace sim_env {
          * @return array containing the limits, where each row is a pair (min, max)
          */
         virtual Eigen::ArrayX2f getDOFPositionLimits(const Eigen::VectorXi& indices=Eigen::VectorXi()) const = 0;
+
+        /**
+         * Retrieves this object's current state. See ObjectState for the definition of an object's state.
+         * @param object_state
+         */
+        virtual void getState(ObjectState& object_state) const = 0;
+        virtual ObjectState getState() const = 0;
+
+        /**
+         * Sets the state of this object.
+         * @param object_state
+         */
+        virtual void setState(const ObjectState& object_state) = 0;
 
         /**
          * Set the current DoF position values of this object. Also see getDOFPositions.
@@ -464,7 +489,10 @@ namespace sim_env {
         virtual JointConstPtr getConstJointFromDOFIndex(unsigned int dof_idx) const = 0;
     };
 
-    class Robot : public Object {
+    /**
+     * A robot is essentially an actuated object.
+     */
+    class Robot : public virtual Object {
     public:
         /** The callback should have signature:
         *   bool callback(const Eigen::VectorXf& positions, const Eigen::VectorXf& velocities, float timestep,
@@ -480,35 +508,8 @@ namespace sim_env {
          */
         virtual void setController(ControlCallback controll_fn) = 0;
         virtual ~Robot() = 0;
-//        /**
-//         * Control mode for degrees of freedom.
-//         * Effort = Force or Torque
-//         */
-//        enum ControlMode {
-//            Position, Velocity, Effort
-//        };
-//
-//        /**
-//         * Set target control value for the active degrees of freedom.
-//         * These controls are forwarded to the simulator during simulation. Note that there might be a PID controller
-//         * operating behind this interface. The interpretation of what the target values represent is set by the
-//         * control mode (@see setControlMode(..)).
-//         * @param target target values
-//         */
-//        virtual void commandControl(const Eigen::VectorXf& target) = 0;
-//
-//        /**
-//         * Sets the control mode of this robot. Also resets any internal controller state, if there is any.
-//         * @param control_mode
-//         */
-//        virtual void setControlMode(ControlMode control_mode) = 0;
-//
-//        /**
-//         * Returns the control mode of this robot.
-//         * @return  control mode of this robot
-//         */
-//        virtual ControlMode getControlMode() const = 0;
     };
+
 
     class WorldViewer {
     public:
@@ -521,6 +522,8 @@ namespace sim_env {
     /* Typedefs for shared pointers on this class */
     typedef std::shared_ptr<WorldViewer> WorldViewerPtr;
     typedef std::shared_ptr<const WorldViewer> WorldViewerConstPtr;
+
+    typedef std::map<std::string, ObjectState> WorldState;
 
     class World { // public std::enable_shared_from_this<World>
     public:
@@ -583,6 +586,29 @@ namespace sim_env {
         virtual void setPhysicsTimeStep(float physics_step) = 0;
 
         /**
+         * Checks whether both provided collidables collide.
+         * @param collidable_a
+         * @param collidable_b
+         * @return true iff there is a collision between both collidables
+         */
+        virtual bool checkCollision(CollidablePtr collidable_a, CollidablePtr collidable_b) = 0;
+
+        /**
+         * Checks whether both provided collidables collide.
+         * @param collidable_a
+         * @return true iff collidable is in collision with any other object
+         */
+        virtual bool checkCollision(CollidablePtr collidable) = 0;
+
+        /**
+         * Checks whether collidable_a is in collision with any of the provided collidables
+         * @param collidable_a
+         * @param collidables
+         * @return  true iff collidable_a collides with any of the provided objects in collidables
+         */
+        virtual bool checkCollision(CollidablePtr collidable_a, const std::vector<CollidablePtr>& collidables) = 0;
+
+        /**
          * Returns the currently set physics time step.
          */
         virtual float getPhysicsTimeStep() const = 0;
@@ -600,6 +626,38 @@ namespace sim_env {
          * @return shared pointer to a logger.
          */
         virtual LoggerPtr getLogger() = 0;
+
+        /**
+         * Retrieve the state of this world, i.e. all ObjectStates for all objects/robots
+         */
+        virtual WorldState getWorldState() const = 0;
+        virtual void getWorldState(WorldState& state) const = 0;
+
+        /**
+         * Set the state of this world, i.e. the ObjectStates for the objects/robots in state
+         * @return true iff setting state successful.
+         */
+        virtual bool setWorldState(WorldState& state) = 0;
+
+        /**
+         * Saves the current state on an internal state stack.
+         * Note that this state is automatically dropped if a new world is loaded or
+         * an object is added or removed.
+         */
+        virtual void saveState() = 0;
+
+        /**
+         * Restores the last saved state.
+         * @return true iff there was a state to restore to
+         */
+        virtual bool restoreState() = 0;
+
+        /**
+         * Returns a mutex to lock this world.
+         * Any function that changes the state of this world should lock it first.
+         * @return recursive mutex for this world
+         */
+        virtual std::recursive_mutex& getMutex() const = 0;
     };
 }
 
