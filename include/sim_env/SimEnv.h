@@ -159,39 +159,13 @@ namespace sim_env {
     typedef std::shared_ptr<const Joint> JointConstPtr;
     typedef std::weak_ptr<const Joint> JointConstWeakPtr;
 
-    class Collidable;
-    typedef std::shared_ptr<Collidable> CollidablePtr;
-    typedef std::weak_ptr<Collidable> CollidableWeakPtr;
-    typedef std::shared_ptr<const Collidable> CollidableConstPtr;
-    typedef std::weak_ptr<const Collidable> CollidableConstWeakPtr;
-
-    /**
-     * Collidable is an interface for entities that support collisions checks, such as Links and Objects.
-     */
-    class Collidable {
-    public:
-        virtual ~Collidable() = 0;
-        // TODO other collision checks?
-        /**
-         * Checks whether this Collidable collides with anything.
-         * @return True if this collidable collides with something
-         */
-        virtual bool checkCollision() = 0;
-        /**
-         * Checks whether this Collidable collides with the given Collidable.
-         * @warning An implementation may assume that all passed Collidables are certain implementations.
-         * @param other the Collidable to check collision with.
-         * @return True if objects are colliding, else False
-         */
-        virtual bool checkCollision(CollidablePtr other) = 0;
-
-        /**
-         * Checks whether this Collidable collides with any of the given Collidables..
-         * @warning An implementation may assume that all passed Collidabales are certain implementations.
-         * @param others list of Collidables to check collisions with
-         * @return True if this Collidable collides with any of the given Collidables, else False
-         */
-        virtual bool checkCollision(const std::vector<CollidablePtr>& others) = 0;
+    struct Contact {
+        ObjectWeakPtr object_a;
+        ObjectWeakPtr object_b;
+        LinkWeakPtr link_a;
+        LinkWeakPtr link_b;
+        Eigen::Vector3f contact_point; // in world frame
+        Eigen::Vector3f contact_normal; // in world frame
     };
 
     /**
@@ -247,7 +221,7 @@ namespace sim_env {
         Eigen::Array2f acceleration_limits; // [min, max]
     };
 
-    class Link : public virtual Collidable, public virtual Entity  {
+    class Link : public virtual Entity  {
     public:
         virtual ~Link() = 0;
         virtual ObjectPtr getObject() const = 0;
@@ -256,6 +230,45 @@ namespace sim_env {
         virtual void getConstChildJoints(std::vector<JointConstPtr>& child_joints) const = 0;
         virtual void getParentJoints(std::vector<JointPtr>& parent_joints) = 0;
         virtual void getConstParentJoints(std::vector<JointConstPtr>& parent_joints) const = 0;
+        /**
+         * Checks whether this Link collides with anything.
+         * @return True if this Link collides with something
+         */
+        virtual bool checkCollision() = 0;
+        /**
+         * Checks whether this Link collides with anything.
+         * @param list of contacts - all found contacts are stored in this list
+         * @return True iff this Link collides with anything
+         */
+        virtual bool checkCollision(std::vector<Contact>& contacts) = 0;
+        /**
+         * Checks whether this Link collides with any of the other Links.
+         * @param other_links - list of links to check collision with.
+         * @return True iff this Link collides with any of the given Links.
+         */
+        virtual bool checkCollision(const std::vector<LinkPtr>& other_links) = 0;
+        /**
+         * Checks whether this Link collides with any of the other links.
+         * @param other_links  - list of links to check collision with.
+         * @param contacts - all detected contacts are saved in this list
+         * @return True iff this Link collides with any of the given Links.
+         */
+        virtual bool checkCollision(const std::vector<LinkPtr>& other_links,
+                                    std::vector<Contact>& contacts) = 0;
+        /**
+         * Checks whether this Link collides with any of the given objects.
+         * @param other_objects - list of other objects.
+         * @return True iff this Link collides with any of the given objects.
+         */
+        virtual bool checkCollision(const std::vector<ObjectPtr>& other_objects) = 0;
+        /**
+         * Checks whether this Link collides with any of the given objects.
+         * @param other_objects - list of other objects.
+         * @param contacts - all detected contacts are saved in this list
+         * @return True iff this Link collides with any of the given objects.
+         */
+        virtual bool checkCollision(const std::vector<ObjectPtr>& other_objects,
+                                    std::vector<Contact>& contacts) = 0;
     };
 
     class Joint : public virtual Entity {
@@ -304,7 +317,7 @@ namespace sim_env {
         Eigen::VectorXi active_dofs; // currently active DOFs
     };
 
-    class Object : public virtual Collidable, public virtual Entity {
+    class Object : public virtual Entity {
     public:
         virtual ~Object() = 0;
         /**
@@ -487,6 +500,42 @@ namespace sim_env {
         virtual JointConstPtr getConstJoint(const std::string& joint_name) const = 0;
         virtual JointConstPtr getConstJoint(unsigned int joint_idx) const = 0;
         virtual JointConstPtr getConstJointFromDOFIndex(unsigned int dof_idx) const = 0;
+
+        /**
+         * Checks whether this Object collides with anything.
+         * @return True if this Object collides with something
+         */
+        virtual bool checkCollision() = 0;
+
+        /**
+         * Checks whether this Object collides with anything.
+         * @param list of contacts - all found contacts are stored in this list
+         * @return True iff this Object collides with anything
+         */
+        virtual bool checkCollision(std::vector<Contact>& contacts) = 0;
+
+        /**
+         * Checks whether this Object collides with the provided object.
+         * @param object - the other object
+         * @return True iff this Object collides with the other object
+         */
+        virtual bool checkCollision(ObjectPtr other_object) = 0;
+        virtual bool checkCollision(ObjectPtr other_object, std::vector<Contact>& contacts) = 0;
+
+        /**
+         * Checks whether this Object collides with any of the given objects.
+         * @param other_objects - list of other objects.
+         * @return True iff this Object collides with any of the given objects.
+         */
+        virtual bool checkCollision(const std::vector<ObjectPtr>& other_objects) = 0;
+        /**
+         * Checks whether this Obejct collides with any of the given objects.
+         * @param other_objects - list of other objects.
+         * @param contacts - all detected contacts are saved in this list
+         * @return True iff this Object collides with any of the given objects.
+         */
+        virtual bool checkCollision(const std::vector<ObjectPtr>& other_objects,
+                                    std::vector<Contact>& contacts) = 0;
     };
 
     /**
@@ -586,28 +635,74 @@ namespace sim_env {
         virtual void setPhysicsTimeStep(float physics_step) = 0;
 
         /**
-         * Checks whether both provided collidables collide.
-         * @param collidable_a
-         * @param collidable_b
-         * @return true iff there is a collision between both collidables
+         * Checks whether both provided objects collide.
+         * @param object_a - first object
+         * @param object_b - second object
+         * @param contacts - (optional) all contacts are stored in this list
+         * @return true iff there is a collision between both objects
          */
-        virtual bool checkCollision(CollidablePtr collidable_a, CollidablePtr collidable_b) = 0;
+        virtual bool checkCollision(ObjectPtr object_a, ObjectPtr object_b) = 0;
+        virtual bool checkCollision(ObjectPtr object_a, ObjectPtr object_b, std::vector<Contact>& contacts) = 0;
 
         /**
-         * Checks whether both provided collidables collide.
-         * @param collidable_a
-         * @return true iff collidable is in collision with any other object
+         * Checks whether the given object collides with the given link.
+         * @param object_a - object
+         * @param link_b - link
+         * @param contacts - (optional) all contacts are stored in this list
+         * @return true iff there is a collision between the object and link_b
          */
-        virtual bool checkCollision(CollidablePtr collidable) = 0;
+        virtual bool checkCollision(ObjectPtr object_a, LinkPtr link_b) = 0;
+        virtual bool checkCollision(ObjectPtr object_a, LinkPtr link_b, std::vector<Contact>& contacts) = 0;
 
         /**
-         * Checks whether collidable_a is in collision with any of the provided collidables
-         * @param collidable_a
-         * @param collidables
-         * @return  true iff collidable_a collides with any of the provided objects in collidables
+         * Checks whether the given object is in collision.
+         * @param object
+         * @param contacts - (optional) all contacts are stored in this list
+         * @return true iff object is in collision with any other object
          */
-        virtual bool checkCollision(CollidablePtr collidable_a, const std::vector<CollidablePtr>& collidables) = 0;
+        virtual bool checkCollision(ObjectPtr object) = 0;
+        virtual bool checkCollision(ObjectPtr object, std::vector<Contact>& contacts) = 0;
 
+        /**
+         * Checks whether the given link is in collision.
+         * @param link
+         * @param contacts - (optional) all contacts are stored in this list
+         * @return true iff link is in collision with any other object
+         */
+        virtual bool checkCollision(LinkPtr link) = 0;
+        virtual bool checkCollision(LinkPtr link, std::vector<Contact>& contacts) = 0;
+
+        /**
+         * Checks whether the given link is in collision.
+         * @param link
+         * @param contacts - (optional) all contacts are stored in this list
+         * @return true iff link is in collision with any other object
+         */
+        virtual bool checkCollision(LinkPtr link, const std::vector<LinkPtr>& other_links) = 0;
+        virtual bool checkCollision(LinkPtr link, const std::vector<LinkPtr>& other_links,
+                                    std::vector<Contact>& contacts) = 0;
+
+        /**
+         * Checks whether object_a is in collision with any of the provided objects.
+         * @param object_a
+         * @param other_objects
+         * @param contacts - (optional) all contacts are stored in this list
+         * @return true iff object_a collides with any of the provided objects in other_objects
+         */
+        virtual bool checkCollision(ObjectPtr object_a, const std::vector<ObjectPtr>& other_objects) = 0;
+        virtual bool checkCollision(ObjectPtr object_a, const std::vector<ObjectPtr>& other_objects,
+                                    std::vector<Contact>& contacts) = 0;
+
+        /**
+         * Checks whether link_a is in collision with any of the provided objects.
+         * @param link_a
+         * @param other_objects
+         * @param contacts - (optional) all contacts are stored in this list
+         * @return true iff link_a collides with any of the provided objects in other_objects
+         */
+        virtual bool checkCollision(LinkPtr link_a, const std::vector<ObjectPtr>& other_objects) = 0;
+        virtual bool checkCollision(LinkPtr link_a, const std::vector<ObjectPtr>& other_objects,
+                                    std::vector<Contact>& contacts) = 0;
         /**
          * Returns the currently set physics time step.
          */

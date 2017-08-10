@@ -6,8 +6,6 @@
 
 sim_env::Logger::~Logger() = default;
 
-sim_env::Collidable::~Collidable() = default;
-
 sim_env::Entity::~Entity() = default;
 
 sim_env::Link::~Link() = default;
