@@ -38,6 +38,8 @@ set(CMAKE_CXX_COMPILER /usr/bin/clang++)
 set(CMAKE_CXX_STANDARD 11)
 add_definitions(-std=c++11)
 add_definitions(-Wno-deprecated-register)
+set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -Wall")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
 include_directories(include
         ${Eigen_INCLUDE_DIRS}

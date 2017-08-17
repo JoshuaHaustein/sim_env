@@ -590,7 +590,8 @@ namespace sim_env {
          * @param name The unique name of the robot to return
          * @return Pointer to the robot with given name or nullptr if not available
          */
-        virtual RobotPtr getRobot(const std::string& name) const = 0;
+        virtual RobotPtr getRobot(const std::string& name) = 0;
+        virtual RobotConstPtr getRobotConst(const std::string& name) const = 0;
 
         /**
          * Returns the object with given name, if available. Use getRobot or set exclude_robot to false to retrieve a robot.
@@ -598,7 +599,8 @@ namespace sim_env {
          * @param name The unique name of the object to return
          * @return Pointer to the object with given name or nullptr if not available
          */
-        virtual ObjectPtr getObject(const std::string& name, bool exclude_robot=true) const = 0;
+        virtual ObjectPtr getObject(const std::string& name, bool exclude_robot=true) = 0;
+        virtual ObjectConstPtr getObjectConst(const std::string& name, bool exclude_robot=true) const = 0;
 
         /**
          * Returns all objects stored in the world.
@@ -606,14 +608,16 @@ namespace sim_env {
          * @param objects List to fill with objects. The list is not cleared.
          * @param exclude_robots Flag whether to include or exclude robots.
          */
-        virtual void getObjects(std::vector<ObjectPtr>& objects, bool exclude_robots=true) const = 0;
+        virtual void getObjects(std::vector<ObjectPtr>& objects, bool exclude_robots=true) = 0;
+        virtual void getObjects(std::vector<ObjectConstPtr>& objects, bool exclude_robots=true) const = 0;
 
         /**
          * Returns all robots stored in the world.
          * @warning This method returns shared_ptrs. Do not store these references beyond the lifespan of this world.
          * @param objects List to fill with objects. The list is not cleared.
          */
-        virtual void getRobots(std::vector<RobotPtr>& robots) const = 0;
+        virtual void getRobots(std::vector<RobotPtr>& robots) = 0;
+        virtual void getRobots(std::vector<RobotConstPtr>& robots) const = 0;
 
         /**
          * If the underlying world representation supports physics simulation,

@@ -172,7 +172,7 @@ namespace sim_env {
         virtual void getTarget(Eigen::VectorXf& target_state) const override;
         virtual void control(Eigen::VectorXf& output, const Eigen::VectorXf& current_state) override;
         virtual void reset() override;
-        virtual bool isTargetSatisfied(Eigen::VectorXf& current_state, float threshold=0.001f) const;
+        virtual bool isTargetSatisfied(Eigen::VectorXf& current_state, float threshold=0.001f) const override;
         virtual void setGains(const Eigen::VectorXf& kps, const Eigen::VectorXf& kis, const Eigen::VectorXf& kds);
         virtual void setGains(float kp, float ki, float kd);
         virtual void setKps(const Eigen::VectorXf& kps);
@@ -220,9 +220,9 @@ namespace sim_env {
                      Eigen::VectorXf& output);
         IndependentMDPIDController& getPIDController();
     private:
-        RobotWeakPtr _robot;
         IndependentMDPIDController _pid_controller;
         RobotVelocityControllerPtr _velocity_controller;
+        RobotWeakPtr _robot;
     };
 
 }
