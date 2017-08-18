@@ -721,10 +721,10 @@ namespace sim_env {
 
         /**
          * Returns an instance of the logger used in the context of this environment.
-         * This function may also internally create the logger first.
          * @return shared pointer to a logger.
          */
         virtual LoggerPtr getLogger() = 0;
+        virtual LoggerConstPtr getConstLogger() const = 0;
 
         /**
          * Retrieve the state of this world, i.e. all ObjectStates for all objects/robots
