@@ -197,6 +197,7 @@ namespace sim_env {
     class RobotVelocityController {
     public:
         virtual ~RobotVelocityController() = 0;
+        virtual unsigned int getTargetDimension() = 0;
         virtual void setTargetVelocity(const Eigen::VectorXf& velocity) = 0;
         virtual bool control(const Eigen::VectorXf& positions,
                              const Eigen::VectorXf& velocities,

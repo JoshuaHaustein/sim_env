@@ -536,6 +536,12 @@ namespace sim_env {
          */
         virtual bool checkCollision(const std::vector<ObjectPtr>& other_objects,
                                     std::vector<Contact>& contacts) = 0;
+        /**
+         * Checks whether this object is at rest, i.e. all dof velocities are below the given threshold.
+         * @param threshold
+         * @return true iff this object is at rest
+         */
+        virtual bool atRest(float threshold=0.0001f) const = 0;
     };
 
     /**
@@ -639,6 +645,14 @@ namespace sim_env {
         virtual void setPhysicsTimeStep(float physics_step) = 0;
 
         /**
+         * Checks whether the current state is physically feasible.
+         * A state is physically feasible as long as rigid bodies are not intersecting.
+         * Collisions between rigid bodies are allowed. Penetrations between rigid bodies,
+         * however, is not allowed.
+         * @return true / false
+         */
+        virtual bool isPhysicallyFeasible() = 0;
+        /**
          * Checks whether both provided objects collide.
          * @param object_a - first object
          * @param object_b - second object
@@ -725,6 +739,13 @@ namespace sim_env {
          */
         virtual LoggerPtr getLogger() = 0;
         virtual LoggerConstPtr getConstLogger() const = 0;
+
+        /**
+         * Returns whether the world is at rest in the current state.
+         * The world is at rest, if all object's velocities are below the given threshold.
+         * @return true/false depending on whether the world is at rest.
+         */
+        virtual bool atRest(float threshold=0.0001f) const = 0;
 
         /**
          * Retrieve the state of this world, i.e. all ObjectStates for all objects/robots
