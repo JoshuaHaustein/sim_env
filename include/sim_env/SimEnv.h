@@ -311,6 +311,7 @@ namespace sim_env {
     };
 
     struct ObjectState {
+        EIGEN_MAKE_ALIGNED_OPERATOR_NEW
         Eigen::VectorXf dof_positions; // positions of ALL DOFs
         Eigen::VectorXf dof_velocities; // velocities of ALL DOFs
         Eigen::Affine3f pose; // pose/transform of the object
