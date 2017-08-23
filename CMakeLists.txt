@@ -48,6 +48,7 @@ include_directories(include
 set(SOURCE_FILES
         src/sim_env/Controller.cpp
         src/sim_env/SimEnv.cpp
-        src/sim_env/utils/EigenUtils.cpp)
+        src/sim_env/utils/EigenUtils.cpp
+        src/sim_env/utils/MathUtils.cpp)
 add_library(sim_env
         ${SOURCE_FILES})

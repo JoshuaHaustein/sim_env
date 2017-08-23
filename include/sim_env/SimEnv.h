@@ -388,7 +388,7 @@ namespace sim_env {
 
         /**
          * Get the dof position limits of this object.
-         * If a DoF is unlimited, the corresponding limits are (std::numeric_limits<float>::min(), std::numeric_limits<float>::max())
+         * If a DoF is unlimited, the corresponding limits are (std::numeric_limits<float>::lowest(), std::numeric_limits<float>::max())
          * @param indices a vector containing which limits to return. It returns the limits of the active DoFs, if the vector is empty.
          * @return array containing the limits, where each row is a pair (min, max)
          */
@@ -422,7 +422,7 @@ namespace sim_env {
 
         /**
          * Get the dof velocity limits of this object.
-         * If a DoF is unlimited, the corresponding limits are (std::numeric_limits<float>::min(), std::numeric_limits<float>::max())
+         * If a DoF is unlimited, the corresponding limits are (std::numeric_limits<float>::lowest(), std::numeric_limits<float>::max())
          * @param indices a vector containing which limits to return. It returns the limits of the active DoFs, if the vector is empty.
          * @return array containing the limits, where each row is a pair (min, max)
          */
@@ -430,7 +430,7 @@ namespace sim_env {
 
         /**
          * Get the dof acceleration limits of this object.
-         * If a DoF is unlimited, the corresponding limits are (std::numeric_limits<float>::min(), std::numeric_limits<float>::max())
+         * If a DoF is unlimited, the corresponding limits are (std::numeric_limits<float>::lowest(), std::numeric_limits<float>::max())
          * @param indices a vector containing which limits to return. It returns the limits of the active DoFs, if the vector is empty.
          * @return array containing the limits, where each row is a pair (min, max)
          */
