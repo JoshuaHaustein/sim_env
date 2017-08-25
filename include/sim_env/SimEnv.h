@@ -228,8 +228,8 @@ namespace sim_env {
         virtual ObjectConstPtr getConstObject() const = 0;
         virtual void getChildJoints(std::vector<JointPtr>& child_joints) = 0;
         virtual void getConstChildJoints(std::vector<JointConstPtr>& child_joints) const = 0;
-        virtual void getParentJoints(std::vector<JointPtr>& parent_joints) = 0;
-        virtual void getConstParentJoints(std::vector<JointConstPtr>& parent_joints) const = 0;
+        virtual JointPtr getParentJoint() = 0;
+        virtual JointConstPtr getConstParentJoint() const = 0;
         /**
          * Checks whether this Link collides with anything.
          * @return True if this Link collides with something
