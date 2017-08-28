@@ -755,6 +755,11 @@ namespace sim_env {
         virtual void getWorldState(WorldState& state) const = 0;
 
         /**
+         * Prints the current state using the world's logger.
+         */
+        virtual void printWorldState(Logger::LogLevel level=Logger::LogLevel::Debug) const = 0;
+
+        /**
          * Set the state of this world, i.e. the ObjectStates for the objects/robots in state
          * @return true iff setting state successful.
          */
