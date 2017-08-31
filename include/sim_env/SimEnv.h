@@ -18,6 +18,8 @@
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
 
+#include <boost/format.hpp>
+
 /**
  * This header file contains the definition of SimEnv. The idea behind SimEnv is to provide
  * a common interface for different robot simulators. This allows the development of planning
@@ -44,10 +46,15 @@ namespace sim_env {
         virtual void setLevel(LogLevel lvl) = 0;
         virtual LogLevel getLevel() const = 0;
         virtual void logErr(const std::string& msg, const std::string& prefix="") const = 0;
+        virtual void logErr(const boost::format& bf, const std::string& prefix="") const;
         virtual void logInfo(const std::string& msg, const std::string& prefix="") const = 0;
+        virtual void logInfo(const boost::format& bf, const std::string& prefix="") const;
         virtual void logWarn(const std::string& msg, const std::string& prefix="") const = 0;
+        virtual void logWarn(const boost::format& bf, const std::string& prefix="") const;
         virtual void logDebug(const std::string& msg, const std::string& prefix="") const = 0;
+        virtual void logDebug(const boost::format& bf, const std::string& prefix="") const;
         virtual void log(const std::string& msg, LogLevel level, const std::string& prefix="") const = 0;
+        virtual void log(const boost::format& bf, LogLevel level, const std::string& prefix="") const;
     };
 
     class DefaultLogger : public Logger {

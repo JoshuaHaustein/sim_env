@@ -14,5 +14,6 @@
 
   <buildtool_depend>catkin</buildtool_depend>
   <build_depend>Eigen</build_depend>
+  <build_depend>Boost</build_depend>
 
 </package>

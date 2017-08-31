@@ -31,4 +31,22 @@ unsigned int sim_env::WorldViewer::Handle::getID() const {
     return _id;
 }
 
+void sim_env::Logger::logErr(const boost::format &bf, const std::string &prefix) const {
+    logErr(boost::str(bf), prefix);
+}
 
+void sim_env::Logger::logInfo(const boost::format &bf, const std::string &prefix) const {
+    logInfo(boost::str(bf), prefix);
+}
+
+void sim_env::Logger::logWarn(const boost::format &bf, const std::string &prefix) const {
+    logWarn(boost::str(bf), prefix);
+}
+
+void sim_env::Logger::logDebug(const boost::format &bf, const std::string &prefix) const {
+    logDebug(boost::str(bf), prefix);
+}
+
+void sim_env::Logger::log(const boost::format &bf, LogLevel level, const std::string &prefix) const {
+    log(boost::str(bf), level, prefix);
+}
