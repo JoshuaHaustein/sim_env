@@ -13,6 +13,7 @@
 #include <iostream>
 #include <mutex>
 #include <functional>
+#include <atomic>
 
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
@@ -569,9 +570,32 @@ namespace sim_env {
 
     class WorldViewer {
     public:
+        class Handle {
+        public:
+            Handle();
+            ~Handle();
+            unsigned int getID() const;
+        private:
+            static std::atomic_uint _global_id_counter;
+            unsigned int _id;
+        };
+
+        virtual ~WorldViewer() = 0;
 
         //TODO define all drawing functions here; provide support for setting colors and width
-        virtual void drawFrame(const Eigen::Affine3f& transform, float length=1.0f, float width=0.1f) = 0;
+        virtual Handle drawFrame(const Eigen::Affine3f& transform, float length=1.0f, float width=0.1f) = 0;
+        /**
+         * Draw a box at the provided position with the given extents.
+         * The box spans from pos to pos + extents
+         * @param pos - box position (with minimal coordinates)
+         * @param extent - (width, depth, height)
+         * @param solid - flag whether to draw a solid or non-solid box
+         * @param edge_width - thickness of lines
+         */
+        virtual Handle drawBox(const Eigen::Vector3f& pos, const Eigen::Vector3f& extent,
+                               bool solid=false, float edge_width=0.1f) = 0;
+
+        virtual void removeDrawing(const Handle& handle) = 0;
 
     };
 
