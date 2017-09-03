@@ -602,6 +602,18 @@ namespace sim_env {
         virtual Handle drawBox(const Eigen::Vector3f& pos, const Eigen::Vector3f& extent,
                                bool solid=false, float edge_width=0.1f) = 0;
 
+        /**
+         * Draws a line from position start to position end.
+         * @param start  - position where the line segment should start
+         * @param end  - position where the line segment should end
+         * @param color - rgb color (in range [0,1]^3)
+         * @param width - width of the line
+         * @return handle to delete the line again
+         */
+        virtual Handle drawLine(const Eigen::Vector3f& start, const Eigen::Vector3f& end,
+                                const Eigen::Vector3f& color=Eigen::Vector3f(),
+                                float width=0.1f) = 0;
+
         virtual void removeDrawing(const Handle& handle) = 0;
 
     };
