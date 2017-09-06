@@ -596,25 +596,41 @@ namespace sim_env {
          * The box spans from pos to pos + extents
          * @param pos - box position (with minimal coordinates)
          * @param extent - (width, depth, height)
+         * @param color - rgba color (in range [0,1]^4)
          * @param solid - flag whether to draw a solid or non-solid box
          * @param edge_width - thickness of lines
          */
         virtual Handle drawBox(const Eigen::Vector3f& pos, const Eigen::Vector3f& extent,
+                               const Eigen::Vector4f& color=Eigen::Vector4f(0.0f, 0.0f, 0.0f, 1.0f),
                                bool solid=false, float edge_width=0.1f) = 0;
 
         /**
          * Draws a line from position start to position end.
          * @param start  - position where the line segment should start
          * @param end  - position where the line segment should end
-         * @param color - rgb color (in range [0,1]^3)
+         * @param color - rgba color (in range [0,1]^4)
          * @param width - width of the line
          * @return handle to delete the line again
          */
         virtual Handle drawLine(const Eigen::Vector3f& start, const Eigen::Vector3f& end,
-                                const Eigen::Vector3f& color=Eigen::Vector3f(),
+                                const Eigen::Vector4f& color=Eigen::Vector4f(0.0f, 0.0f, 0.0f, 1.0f),
                                 float width=0.1f) = 0;
 
+        /**
+         * Draws a sphere with the given radius centered at center.
+         * @param center - center position of the sphere.
+         * @param radius - radius of the sphere.
+         * @param color - (optional) rbda color of the sphere
+         * @param width - (optional) width of the line
+         * TODO: some option to only draw a 2d circle
+         * @return handle to delete this sphere again
+         */
+        virtual Handle drawSphere(const Eigen::Vector3f& center, float radius,
+                                  const Eigen::Vector4f& color=Eigen::Vector4f(0.0f, 0.0f, 0.0f, 1.0f),
+                                  float width=0.1f) = 0;
+
         virtual void removeDrawing(const Handle& handle) = 0;
+        virtual void removeAllDrawings() = 0;
 
     };
 
