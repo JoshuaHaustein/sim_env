@@ -45,6 +45,7 @@ namespace sim_env {
         virtual ~Logger() = 0;
         virtual void setLevel(LogLevel lvl) = 0;
         virtual LogLevel getLevel() const = 0;
+//        virtual std::ostream& getStream(LogLevel level, const std::string& prefix="") const = 0;
         virtual void logErr(const std::string& msg, const std::string& prefix="") const = 0;
         virtual void logErr(const boost::format& bf, const std::string& prefix="") const;
         virtual void logInfo(const std::string& msg, const std::string& prefix="") const = 0;
@@ -174,6 +175,33 @@ namespace sim_env {
         LinkWeakPtr link_b;
         Eigen::Vector3f contact_point; // in world frame
         Eigen::Vector3f contact_normal; // in world frame
+    };
+
+    struct BoundingBox {
+        EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+        Eigen::Vector3f min_corner;
+        Eigen::Vector3f max_corner;
+
+        BoundingBox() {
+            min_corner.setZero();
+            max_corner.setZero();
+        }
+
+        float getWidth() {
+            return max_corner[0] - min_corner[0];
+        }
+        float getHeight() {
+            return max_corner[1] - min_corner[1];
+        }
+        float getDepth() {
+            return max_corner[2] - min_corner[2];
+        }
+        void merge(const BoundingBox& other) {
+            for (unsigned int i = 0; i < min_corner.size(); ++i) {
+                min_corner[i] = std::min(min_corner[i], other.min_corner[i]);
+                max_corner[i] = std::max(max_corner[i], other.max_corner[i]);
+            }
+        }
     };
 
     /**
@@ -551,6 +579,11 @@ namespace sim_env {
          * @return true iff this object is at rest
          */
         virtual bool atRest(float threshold=0.0001f) const = 0;
+
+        virtual float getMass() const = 0;
+        virtual float getInertia() const = 0; // TODO this should return a matrix
+        virtual BoundingBox getLocalAABB() const = 0;
+        virtual float getGroundFriction() const = 0;
     };
 
     /**
