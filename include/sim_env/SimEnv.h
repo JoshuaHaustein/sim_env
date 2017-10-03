@@ -305,6 +305,11 @@ namespace sim_env {
          */
         virtual bool checkCollision(const std::vector<ObjectPtr>& other_objects,
                                     std::vector<Contact>& contacts) = 0;
+
+        virtual void setMass(float mass) = 0;
+        virtual float getMass() const = 0;
+        virtual float getGroundFriction() const = 0;
+        virtual void setGroundFriction(float coeff) = 0;
     };
 
     class Joint : public virtual Entity {
