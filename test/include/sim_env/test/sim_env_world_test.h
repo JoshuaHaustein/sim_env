@@ -24,13 +24,19 @@ namespace sim_env {
         // It is within the responisbility of the implementation developer to ensure that this struct is filled
         // with sensible data for the respective test cases.
         struct EntityTestData {
+            EIGEN_MAKE_ALIGNED_OPERATOR_NEW
             sim_env::WorldPtr world; // the world the entity is in
             sim_env::EntityPtr entity; // the entity to test
             Eigen::Affine3f initial_transform; // to verify that loading works correctly
             std::string entity_name;
             sim_env::EntityType entity_type;
-            // Object specific entries
-            // TODO
+            // Object specific entries to test object interface
+            sim_env::ObjectPtr object;
+            Eigen::VectorXi active_dofs;
+            std::vector<Eigen::VectorXf> valid_configurations; // for active dofs; _valid_configurations[0] should be different from current config
+            std::vector<Eigen::VectorXf> invalid_configurations; // for active dofs
+            std::vector<Eigen::VectorXf> valid_velocities; // for active dofs; _valid_velocities[0] should be different from current velocities
+            std::vector<Eigen::VectorXf> invalid_velocities; // for active dofs
             // Robot specific entries
             // TODO
             // Joint specific entries
@@ -66,6 +72,7 @@ namespace sim_env {
 
         // Test fixture that is parameterized by factory method
         class SimEnvEntityTest : public ::testing::TestWithParam<CreateEntityTestData*> {
+//            EIGEN_MAKE_ALIGNED_OPERATOR_NEW
         public:
             virtual ~SimEnvEntityTest() { }
 
@@ -87,6 +94,32 @@ namespace sim_env {
             Eigen::Affine3f _initial_transform;
         };
 
+        // Test fixture that is parameterized by factory method
+        class SimEnvObjectTest : public ::testing::TestWithParam<CreateEntityTestData*> {
+        public:
+            virtual ~SimEnvObjectTest() { }
+
+            virtual void SetUp() {
+                EntityTestData test_data = (*GetParam())();
+                _world = test_data.world;
+                _object = test_data.object;
+                _active_dofs = test_data.active_dofs;
+                _valid_configurations = test_data.valid_configurations;
+                _invalid_configurations = test_data.invalid_configurations;
+                _valid_velocities = test_data.valid_velocities;
+                _invalid_velocities = test_data.invalid_velocities;
+            }
+
+            virtual void TearDown() {}
+        protected:
+            sim_env::WorldPtr _world;
+            sim_env::ObjectPtr _object;
+            Eigen::VectorXi _active_dofs;
+            std::vector<Eigen::VectorXf> _valid_configurations;
+            std::vector<Eigen::VectorXf> _invalid_configurations;
+            std::vector<Eigen::VectorXf> _valid_velocities;
+            std::vector<Eigen::VectorXf> _invalid_velocities;
+        };
         /************************************************  TESTs  ************************************************/
         //////////////////////////////////////////// SimEnvWorldTests ///////////////////////////////////////////
         // Tests that all robots exist
@@ -173,12 +206,10 @@ namespace sim_env {
             ASSERT_EQ(_entity->getType(), _entity_type);
         }
 
-        TEST_P(SimEnvEntityTest, getTransformWorks) {
-            ASSERT_NE(_entity, nullptr);
+//        TEST_P(SimEnvEntityTest, getTransformWorks) {
+//            ASSERT_NE(_entity, nullptr);
 //            ASSERT_EQ(_entity->getTransform(), _initial_transform);
-            // TODO check transform
-            ASSERT_TRUE(true);
-        }
+//        }
 
         TEST_P(SimEnvEntityTest, getWorldWorks) {
             ASSERT_NE(_entity, nullptr);
@@ -190,6 +221,55 @@ namespace sim_env {
         //////////////////////////////////////////// SimEnvLinkTests ///////////////////////////////////////////
         // TODO
         //////////////////////////////////////////// SimEnvObjectTests ///////////////////////////////////////////
+        TEST_P(SimEnvObjectTest, activeDOFsWork) {
+            // first test whether we retrieve all dofs
+            Eigen::VectorXi all_dofs = _object->getDOFIndices();
+            ASSERT_TRUE(all_dofs.size() > 0 || _object->isStatic());
+            if (_object->isStatic()) return;
+            // if we don't have a static object, test whether setting active dofs works
+            Eigen::VectorXi dummy_active_dofs(1);
+            dummy_active_dofs[0] = all_dofs[0];
+            _object->setActiveDOFs(dummy_active_dofs);
+            ASSERT_EQ(_object->getActiveDOFs(), dummy_active_dofs);
+            // now test whether position and velocity getters return vectors with correct dimension
+            Eigen::VectorXf config = _object->getDOFPositions();
+            ASSERT_EQ(config.size(), dummy_active_dofs.size());
+            Eigen::VectorXf vel = _object->getDOFVelocities();
+            ASSERT_EQ(vel.size(), dummy_active_dofs.size());
+            // now do the same with the actual active dofs
+            _object->setActiveDOFs(_active_dofs);
+            ASSERT_EQ(_object->getActiveDOFs(), _active_dofs);
+            config = _object->getDOFPositions();
+            ASSERT_EQ(config.size(), _active_dofs.size());
+            vel = _object->getDOFVelocities();
+            ASSERT_EQ(vel.size(), _active_dofs.size());
+        }
+
+        TEST_P(SimEnvObjectTest, dofPositionsWork) {
+            ASSERT_TRUE(_valid_configurations.size() > 0);
+            _object->setActiveDOFs(_active_dofs);
+            Eigen::VectorXf prev_config = _object->getDOFPositions();
+            _object->setDOFPositions(_valid_configurations[0]);
+            ASSERT_TRUE(_object->getDOFPositions().isApprox(_valid_configurations[0]));
+            ASSERT_EQ(_valid_configurations[0].isApprox(prev_config), _object->getDOFPositions().isApprox(prev_config));
+        }
+
+        TEST_P(SimEnvObjectTest, dofVelocitiesWork) {
+            ASSERT_TRUE(_valid_velocities.size() > 0);
+            _object->setActiveDOFs(_active_dofs);
+            Eigen::VectorXf prev_vel = _object->getDOFVelocities();
+            _object->setDOFVelocities(_valid_velocities[0]);
+            ASSERT_TRUE(_valid_velocities[0].isApprox(_object->getDOFVelocities()));
+            ASSERT_EQ(_valid_velocities[0].isApprox(prev_vel), _object->getDOFVelocities().isApprox(prev_vel));
+            // now let's do the same at a different position
+            ASSERT_TRUE(_valid_configurations.size() > 0);
+            _object->setDOFPositions(_valid_configurations[0]);
+            // first check whether we still have the same velocities
+            ASSERT_TRUE(_valid_velocities[0].isApprox(_object->getDOFVelocities()));
+            // next set it back to our previous velocities
+            _object->setDOFVelocities(prev_vel);
+            ASSERT_TRUE(prev_vel.isApprox(_object->getDOFVelocities()));
+        }
         // TODO
         //////////////////////////////////////////// SimEnvRobotTests ///////////////////////////////////////////
         // TODO more tests

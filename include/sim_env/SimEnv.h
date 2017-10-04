@@ -13,9 +13,12 @@
 #include <iostream>
 #include <mutex>
 #include <functional>
+#include <atomic>
 
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
+
+#include <boost/format.hpp>
 
 /**
  * This header file contains the definition of SimEnv. The idea behind SimEnv is to provide
@@ -42,11 +45,17 @@ namespace sim_env {
         virtual ~Logger() = 0;
         virtual void setLevel(LogLevel lvl) = 0;
         virtual LogLevel getLevel() const = 0;
+//        virtual std::ostream& getStream(LogLevel level, const std::string& prefix="") const = 0;
         virtual void logErr(const std::string& msg, const std::string& prefix="") const = 0;
+        virtual void logErr(const boost::format& bf, const std::string& prefix="") const;
         virtual void logInfo(const std::string& msg, const std::string& prefix="") const = 0;
+        virtual void logInfo(const boost::format& bf, const std::string& prefix="") const;
         virtual void logWarn(const std::string& msg, const std::string& prefix="") const = 0;
+        virtual void logWarn(const boost::format& bf, const std::string& prefix="") const;
         virtual void logDebug(const std::string& msg, const std::string& prefix="") const = 0;
+        virtual void logDebug(const boost::format& bf, const std::string& prefix="") const;
         virtual void log(const std::string& msg, LogLevel level, const std::string& prefix="") const = 0;
+        virtual void log(const boost::format& bf, LogLevel level, const std::string& prefix="") const;
     };
 
     class DefaultLogger : public Logger {
@@ -168,6 +177,33 @@ namespace sim_env {
         Eigen::Vector3f contact_normal; // in world frame
     };
 
+    struct BoundingBox {
+        EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+        Eigen::Vector3f min_corner;
+        Eigen::Vector3f max_corner;
+
+        BoundingBox() {
+            min_corner.setZero();
+            max_corner.setZero();
+        }
+
+        float getWidth() {
+            return max_corner[0] - min_corner[0];
+        }
+        float getHeight() {
+            return max_corner[1] - min_corner[1];
+        }
+        float getDepth() {
+            return max_corner[2] - min_corner[2];
+        }
+        void merge(const BoundingBox& other) {
+            for (unsigned int i = 0; i < min_corner.size(); ++i) {
+                min_corner[i] = std::min(min_corner[i], other.min_corner[i]);
+                max_corner[i] = std::max(max_corner[i], other.max_corner[i]);
+            }
+        }
+    };
+
     /**
      * Base class for any entity stored in a SimEnv World.
      */
@@ -228,8 +264,8 @@ namespace sim_env {
         virtual ObjectConstPtr getConstObject() const = 0;
         virtual void getChildJoints(std::vector<JointPtr>& child_joints) = 0;
         virtual void getConstChildJoints(std::vector<JointConstPtr>& child_joints) const = 0;
-        virtual void getParentJoints(std::vector<JointPtr>& parent_joints) = 0;
-        virtual void getConstParentJoints(std::vector<JointConstPtr>& parent_joints) const = 0;
+        virtual JointPtr getParentJoint() = 0;
+        virtual JointConstPtr getConstParentJoint() const = 0;
         /**
          * Checks whether this Link collides with anything.
          * @return True if this Link collides with something
@@ -269,6 +305,11 @@ namespace sim_env {
          */
         virtual bool checkCollision(const std::vector<ObjectPtr>& other_objects,
                                     std::vector<Contact>& contacts) = 0;
+
+        virtual void setMass(float mass) = 0;
+        virtual float getMass() const = 0;
+        virtual float getGroundFriction() const = 0;
+        virtual void setGroundFriction(float coeff) = 0;
     };
 
     class Joint : public virtual Entity {
@@ -311,6 +352,7 @@ namespace sim_env {
     };
 
     struct ObjectState {
+        EIGEN_MAKE_ALIGNED_OPERATOR_NEW
         Eigen::VectorXf dof_positions; // positions of ALL DOFs
         Eigen::VectorXf dof_velocities; // velocities of ALL DOFs
         Eigen::Affine3f pose; // pose/transform of the object
@@ -387,7 +429,7 @@ namespace sim_env {
 
         /**
          * Get the dof position limits of this object.
-         * If a DoF is unlimited, the corresponding limits are (std::numeric_limits<float>::min(), std::numeric_limits<float>::max())
+         * If a DoF is unlimited, the corresponding limits are (std::numeric_limits<float>::lowest(), std::numeric_limits<float>::max())
          * @param indices a vector containing which limits to return. It returns the limits of the active DoFs, if the vector is empty.
          * @return array containing the limits, where each row is a pair (min, max)
          */
@@ -421,7 +463,7 @@ namespace sim_env {
 
         /**
          * Get the dof velocity limits of this object.
-         * If a DoF is unlimited, the corresponding limits are (std::numeric_limits<float>::min(), std::numeric_limits<float>::max())
+         * If a DoF is unlimited, the corresponding limits are (std::numeric_limits<float>::lowest(), std::numeric_limits<float>::max())
          * @param indices a vector containing which limits to return. It returns the limits of the active DoFs, if the vector is empty.
          * @return array containing the limits, where each row is a pair (min, max)
          */
@@ -429,7 +471,7 @@ namespace sim_env {
 
         /**
          * Get the dof acceleration limits of this object.
-         * If a DoF is unlimited, the corresponding limits are (std::numeric_limits<float>::min(), std::numeric_limits<float>::max())
+         * If a DoF is unlimited, the corresponding limits are (std::numeric_limits<float>::lowest(), std::numeric_limits<float>::max())
          * @param indices a vector containing which limits to return. It returns the limits of the active DoFs, if the vector is empty.
          * @return array containing the limits, where each row is a pair (min, max)
          */
@@ -536,6 +578,17 @@ namespace sim_env {
          */
         virtual bool checkCollision(const std::vector<ObjectPtr>& other_objects,
                                     std::vector<Contact>& contacts) = 0;
+        /**
+         * Checks whether this object is at rest, i.e. all dof velocities are below the given threshold.
+         * @param threshold
+         * @return true iff this object is at rest
+         */
+        virtual bool atRest(float threshold=0.0001f) const = 0;
+
+        virtual float getMass() const = 0;
+        virtual float getInertia() const = 0; // TODO this should return a matrix
+        virtual BoundingBox getLocalAABB() const = 0;
+        virtual float getGroundFriction() const = 0;
     };
 
     /**
@@ -562,9 +615,60 @@ namespace sim_env {
 
     class WorldViewer {
     public:
+        class Handle {
+        public:
+            Handle();
+            ~Handle();
+            unsigned int getID() const;
+        private:
+            static std::atomic_uint _global_id_counter;
+            unsigned int _id;
+        };
+
+        virtual ~WorldViewer() = 0;
 
         //TODO define all drawing functions here; provide support for setting colors and width
-        virtual void drawFrame(const Eigen::Affine3f& transform, float length=1.0f, float width=0.1f) = 0;
+        virtual Handle drawFrame(const Eigen::Affine3f& transform, float length=1.0f, float width=0.1f) = 0;
+        /**
+         * Draw a box at the provided position with the given extents.
+         * The box spans from pos to pos + extents
+         * @param pos - box position (with minimal coordinates)
+         * @param extent - (width, depth, height)
+         * @param color - rgba color (in range [0,1]^4)
+         * @param solid - flag whether to draw a solid or non-solid box
+         * @param edge_width - thickness of lines
+         */
+        virtual Handle drawBox(const Eigen::Vector3f& pos, const Eigen::Vector3f& extent,
+                               const Eigen::Vector4f& color=Eigen::Vector4f(0.0f, 0.0f, 0.0f, 1.0f),
+                               bool solid=false, float edge_width=0.1f) = 0;
+
+        /**
+         * Draws a line from position start to position end.
+         * @param start  - position where the line segment should start
+         * @param end  - position where the line segment should end
+         * @param color - rgba color (in range [0,1]^4)
+         * @param width - width of the line
+         * @return handle to delete the line again
+         */
+        virtual Handle drawLine(const Eigen::Vector3f& start, const Eigen::Vector3f& end,
+                                const Eigen::Vector4f& color=Eigen::Vector4f(0.0f, 0.0f, 0.0f, 1.0f),
+                                float width=0.1f) = 0;
+
+        /**
+         * Draws a sphere with the given radius centered at center.
+         * @param center - center position of the sphere.
+         * @param radius - radius of the sphere.
+         * @param color - (optional) rbda color of the sphere
+         * @param width - (optional) width of the line
+         * TODO: some option to only draw a 2d circle
+         * @return handle to delete this sphere again
+         */
+        virtual Handle drawSphere(const Eigen::Vector3f& center, float radius,
+                                  const Eigen::Vector4f& color=Eigen::Vector4f(0.0f, 0.0f, 0.0f, 1.0f),
+                                  float width=0.1f) = 0;
+
+        virtual void removeDrawing(const Handle& handle) = 0;
+        virtual void removeAllDrawings() = 0;
 
     };
 
@@ -590,7 +694,8 @@ namespace sim_env {
          * @param name The unique name of the robot to return
          * @return Pointer to the robot with given name or nullptr if not available
          */
-        virtual RobotPtr getRobot(const std::string& name) const = 0;
+        virtual RobotPtr getRobot(const std::string& name) = 0;
+        virtual RobotConstPtr getRobotConst(const std::string& name) const = 0;
 
         /**
          * Returns the object with given name, if available. Use getRobot or set exclude_robot to false to retrieve a robot.
@@ -598,7 +703,8 @@ namespace sim_env {
          * @param name The unique name of the object to return
          * @return Pointer to the object with given name or nullptr if not available
          */
-        virtual ObjectPtr getObject(const std::string& name, bool exclude_robot=true) const = 0;
+        virtual ObjectPtr getObject(const std::string& name, bool exclude_robot=true) = 0;
+        virtual ObjectConstPtr getObjectConst(const std::string& name, bool exclude_robot=true) const = 0;
 
         /**
          * Returns all objects stored in the world.
@@ -606,14 +712,16 @@ namespace sim_env {
          * @param objects List to fill with objects. The list is not cleared.
          * @param exclude_robots Flag whether to include or exclude robots.
          */
-        virtual void getObjects(std::vector<ObjectPtr>& objects, bool exclude_robots=true) const = 0;
+        virtual void getObjects(std::vector<ObjectPtr>& objects, bool exclude_robots=true) = 0;
+        virtual void getObjects(std::vector<ObjectConstPtr>& objects, bool exclude_robots=true) const = 0;
 
         /**
          * Returns all robots stored in the world.
          * @warning This method returns shared_ptrs. Do not store these references beyond the lifespan of this world.
          * @param objects List to fill with objects. The list is not cleared.
          */
-        virtual void getRobots(std::vector<RobotPtr>& robots) const = 0;
+        virtual void getRobots(std::vector<RobotPtr>& robots) = 0;
+        virtual void getRobots(std::vector<RobotConstPtr>& robots) const = 0;
 
         /**
          * If the underlying world representation supports physics simulation,
@@ -634,6 +742,14 @@ namespace sim_env {
          */
         virtual void setPhysicsTimeStep(float physics_step) = 0;
 
+        /**
+         * Checks whether the current state is physically feasible.
+         * A state is physically feasible as long as rigid bodies are not intersecting.
+         * Collisions between rigid bodies are allowed. Penetrations between rigid bodies,
+         * however, is not allowed.
+         * @return true / false
+         */
+        virtual bool isPhysicallyFeasible() = 0;
         /**
          * Checks whether both provided objects collide.
          * @param object_a - first object
@@ -717,16 +833,28 @@ namespace sim_env {
 
         /**
          * Returns an instance of the logger used in the context of this environment.
-         * This function may also internally create the logger first.
          * @return shared pointer to a logger.
          */
         virtual LoggerPtr getLogger() = 0;
+        virtual LoggerConstPtr getConstLogger() const = 0;
+
+        /**
+         * Returns whether the world is at rest in the current state.
+         * The world is at rest, if all object's velocities are below the given threshold.
+         * @return true/false depending on whether the world is at rest.
+         */
+        virtual bool atRest(float threshold=0.0001f) const = 0;
 
         /**
          * Retrieve the state of this world, i.e. all ObjectStates for all objects/robots
          */
         virtual WorldState getWorldState() const = 0;
         virtual void getWorldState(WorldState& state) const = 0;
+
+        /**
+         * Prints the current state using the world's logger.
+         */
+        virtual void printWorldState(Logger::LogLevel level=Logger::LogLevel::Debug) const = 0;
 
         /**
          * Set the state of this world, i.e. the ObjectStates for the objects/robots in state

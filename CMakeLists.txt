@@ -9,7 +9,7 @@ find_package(catkin REQUIRED COMPONENTS
 
 ## System dependencies are found with CMake's conventions
 find_package(Eigen 3.3 REQUIRED)
-
+find_package(Boost REQUIRED)
 
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
@@ -29,7 +29,7 @@ catkin_package(
   INCLUDE_DIRS include test/include
   LIBRARIES sim_env
 #  CATKIN_DEPENDS other_catkin_pkg
-  DEPENDS Eigen
+  DEPENDS Eigen Boost
 )
 
 # BUILD
@@ -38,6 +38,8 @@ set(CMAKE_CXX_COMPILER /usr/bin/clang++)
 set(CMAKE_CXX_STANDARD 11)
 add_definitions(-std=c++11)
 add_definitions(-Wno-deprecated-register)
+set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -Wall")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
 include_directories(include
         ${Eigen_INCLUDE_DIRS}
@@ -46,6 +48,7 @@ include_directories(include
 set(SOURCE_FILES
         src/sim_env/Controller.cpp
         src/sim_env/SimEnv.cpp
-        src/sim_env/utils/EigenUtils.cpp)
+        src/sim_env/utils/EigenUtils.cpp
+        src/sim_env/utils/MathUtils.cpp)
 add_library(sim_env
         ${SOURCE_FILES})
