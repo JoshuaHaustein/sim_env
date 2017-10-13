@@ -750,6 +750,14 @@ namespace sim_env {
          * @return true / false
          */
         virtual bool isPhysicallyFeasible() = 0;
+
+        /**
+         * Checks whether there are any links that collide.
+         * @param contacts - all contacts found
+         * @return true iff there are at least two colliding links
+         */
+        virtual bool checkCollision(std::vector<Contact>& contacts)  = 0;
+
         /**
          * Checks whether both provided objects collide.
          * @param object_a - first object

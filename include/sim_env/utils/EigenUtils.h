@@ -17,6 +17,7 @@ namespace sim_env {
             ScalingResult scaleToLimits(Eigen::VectorXf& vector, const Eigen::ArrayX2f& limits);
             void eulerToQuaternion(float roll, float pitch, float yaw, Eigen::Quaternionf& output);
             void quaternionToEuler(const Eigen::Quaternionf& quaternion, Eigen::Vector3f& output);
+            void setValues(Eigen::VectorXf& dest, const Eigen::VectorXf& source, const Eigen::VectorXi& indices);
         }
     }
 }

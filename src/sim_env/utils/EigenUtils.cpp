@@ -67,3 +67,12 @@ void sim_env::utils::eigen::quaternionToEuler(const Eigen::Quaternionf& quaterni
     output.y() = pitch;
     output.z() = yaw;
 }
+
+void sim_env::utils::eigen::setValues(Eigen::VectorXf& dest, const Eigen::VectorXf& source, const Eigen::VectorXi& indices) {
+    for (long i = 0; i < indices.size(); ++i) {
+        auto idx = indices[i];
+        assert(idx < dest.size());
+        assert(idx < source.size());
+        dest[idx] = source[idx];
+    }
+}
