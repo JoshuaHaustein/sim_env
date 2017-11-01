@@ -8,7 +8,7 @@ find_package(catkin REQUIRED COMPONENTS
         cmake_modules)
 
 ## System dependencies are found with CMake's conventions
-find_package(Eigen 3.3 REQUIRED)
+find_package(Eigen3 3.3 REQUIRED)
 find_package(Boost REQUIRED)
 
 ## Uncomment this if the package has a setup.py. This macro ensures
@@ -29,7 +29,7 @@ catkin_package(
   INCLUDE_DIRS include test/include
   LIBRARIES sim_env
 #  CATKIN_DEPENDS other_catkin_pkg
-  DEPENDS Eigen Boost
+  DEPENDS EIGEN3 Boost
 )
 
 # BUILD
@@ -42,7 +42,7 @@ set(CMAKE_CXX_FLAGS_DEBUG "-g -O0 -Wall")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
 include_directories(include
-        ${Eigen_INCLUDE_DIRS}
+        ${EIGEN3_INCLUDE_DIRS}
         ${catkin_INCLUDE_DIRS}
         ${Boost_INCLUDE_DIRS})
 set(SOURCE_FILES
