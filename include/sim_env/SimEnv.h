@@ -667,6 +667,7 @@ namespace sim_env {
                                   const Eigen::Vector4f& color=Eigen::Vector4f(0.0f, 0.0f, 0.0f, 1.0f),
                                   float width=0.1f) = 0;
 
+        virtual WorldPtr getWorld() const = 0;
         virtual void removeDrawing(const Handle& handle) = 0;
         virtual void removeAllDrawings() = 0;
 
@@ -750,6 +751,11 @@ namespace sim_env {
          * @return true / false
          */
         virtual bool isPhysicallyFeasible() = 0;
+
+        /**
+         * Clones this world. The returned world is identical to this world.
+         */
+        virtual WorldPtr clone() const = 0;
 
         /**
          * Checks whether there are any links that collide.
