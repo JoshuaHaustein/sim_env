@@ -196,6 +196,21 @@ namespace sim_env {
         float getDepth() {
             return max_corner[2] - min_corner[2];
         }
+
+        /**
+         *  Returns the extents of this bounding box, which are (width/2, height/2, depth/2)
+         */
+        Eigen::Vector3f extents() const {
+            return 0.5f * (max_corner - min_corner);
+        }
+
+        /**
+         *  Returns the center of this bounding box.
+         */
+        Eigen::Vector3f center() const {
+            return 0.5f * (min_corner + max_corner);
+        }
+
         void merge(const BoundingBox& other) {
             for (unsigned int i = 0; i < min_corner.size(); ++i) {
                 min_corner[i] = std::min(min_corner[i], other.min_corner[i]);
@@ -715,6 +730,18 @@ namespace sim_env {
          */
         virtual void getObjects(std::vector<ObjectPtr>& objects, bool exclude_robots=true) = 0;
         virtual void getObjects(std::vector<ObjectConstPtr>& objects, bool exclude_robots=true) const = 0;
+
+        /**
+         * Returns all objects stored in this world that overlap with the specified axis aligned
+         * bounding box.
+         * @param aabb - Axis aligned bounding box in world frame.
+         * @param objects - vector to store output in
+         * @param exclude_robots - if true, robots are not returned
+         */
+        virtual void getObjects(const BoundingBox& aabb, std::vector<ObjectPtr>& objects,
+                                bool exclude_robots=true) = 0;
+        virtual void getObjects(const BoundingBox& aabb, std::vector<ObjectConstPtr>& objects,
+                                bool exclude_robots=true) const = 0;
 
         /**
          * Returns all robots stored in the world.
