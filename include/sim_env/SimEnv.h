@@ -14,11 +14,13 @@
 #include <mutex>
 #include <functional>
 #include <atomic>
-
+// Eigen imports
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
-
+// Boost imports
 #include <boost/format.hpp>
+// sim_env imports
+#include <sim_env/Grid.h>
 
 /**
  * This header file contains the definition of SimEnv. The idea behind SimEnv is to provide
@@ -323,6 +325,8 @@ namespace sim_env {
 
         virtual void setMass(float mass) = 0;
         virtual float getMass() const = 0;
+        virtual void getCenterOfMass(Eigen::Vector3f& com) const = 0;
+        virtual void getLocalCenterOfMass(Eigen::Vector3f& com) const = 0;
         virtual float getGroundFriction() const = 0;
         virtual void setGroundFriction(float coeff) = 0;
     };
@@ -632,9 +636,12 @@ namespace sim_env {
     public:
         class Handle {
         public:
-            Handle();
+            Handle(bool valid_handle=true);
+            Handle(const Handle& other);
             ~Handle();
+            Handle& operator=(const Handle& other);
             unsigned int getID() const;
+            bool isValid() const;
         private:
             static std::atomic_uint _global_id_counter;
             unsigned int _id;
@@ -681,6 +688,16 @@ namespace sim_env {
         virtual Handle drawSphere(const Eigen::Vector3f& center, float radius,
                                   const Eigen::Vector4f& color=Eigen::Vector4f(0.0f, 0.0f, 0.0f, 1.0f),
                                   float width=0.1f) = 0;
+
+        /**
+         * Draws the given voxel grid. The grid is assumed to store a color for each cell.
+         * @param grid - a voxel grid that stores the color for each voxel
+         * @param old_handle (optional) - a handle to a previously drawn instance of a voxel grid that is supposed to
+         *      be replaced by this new drawing. Providing this may save resources, but you need to ensure that the new
+         *      grid has the same dimensions as the previous one.
+         * @return handle to delete this grid again
+         */
+        virtual Handle drawVoxelGrid(const grid::VoxelGrid<float, Eigen::Vector4f>& grid, const Handle& old_handle=Handle(false)) = 0;
 
         virtual WorldPtr getWorld() const = 0;
         virtual void removeDrawing(const Handle& handle) = 0;
