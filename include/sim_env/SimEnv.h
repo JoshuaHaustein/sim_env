@@ -274,6 +274,16 @@ namespace sim_env {
         Eigen::Array2f acceleration_limits; // [min, max]
     };
 
+    struct Ball {
+        Eigen::Vector3f center;
+        float radius;
+        Ball();
+        Ball(Eigen::Vector3f center, float radius);
+        Ball(const Ball& other);
+        ~Ball();
+        Ball& operator=(const Ball& other);
+    };
+
     class Link : public virtual Entity  {
     public:
         virtual ~Link() = 0;
@@ -283,6 +293,29 @@ namespace sim_env {
         virtual void getConstChildJoints(std::vector<JointConstPtr>& child_joints) const = 0;
         virtual JointPtr getParentJoint() = 0;
         virtual JointConstPtr getConstParentJoint() const = 0;
+
+        /**
+         * Provides a set of balls that approximate the shape of this link.
+         * The ball positions are in global coordinates.
+         * @param balls - a vector to be filled with all balls, balls are appended to the vector
+         */
+        virtual void getBallApproximation(std::vector<Ball>& balls) const = 0;
+        /**
+         * Provides a set of balls that approximate  the shape of this link.
+         * The ball positions are in link frame.
+         * @param balls - a vector to be filled with all balls, balls are appended to the vector
+         */
+        virtual void getLocalBallApproximation(std::vector<Ball>& balls) const = 0;
+        /**
+         * Updates the global positions of the given approximation balls.
+         * @param balls - a vector containing a sufficient number of balls
+         * @param start - start iterator pointing to the first ball to update
+         * @param end - end itartor indicating where to stop. between end and stop there must be
+         *              sufficiently many balls to update (as many as getBallApproximation is providing)
+         */
+        virtual void updateBallApproximation(std::vector<Ball>& balls,
+                                          std::vector<Ball>::iterator& start,
+                                          std::vector<Ball>::iterator& end) const = 0;
         /**
          * Checks whether this Link collides with anything.
          * @return True if this Link collides with something
@@ -509,6 +542,14 @@ namespace sim_env {
         virtual bool isStatic() const = 0;
 
         /**
+         * Provides a set of balls that approximate the shape of this object.
+         * The ball positions are in global coordinates.
+         * @param balls - a vector to be filled with all balls
+         *               Any ball in the given vector is reused, i.e. the position updated. If the number of balls
+         *              does not suffice, additional balls are appended. If there are too many, the size is reduced.
+         */
+        virtual void getBallApproximation(std::vector<Ball>& balls) const = 0;
+        /**
          * Retrieves all links of this object and adds them to the given list.
          * @warning This method returns shared_ptrs. Do not store these references beyond the lifespan of this object.
          * @param links a vector in which all links are stored (not reset).
@@ -628,6 +669,10 @@ namespace sim_env {
          * @param controll_fn callback function with signature ControlCallback that
          */
         virtual void setController(ControlCallback controll_fn) = 0;
+        // /**
+        //  * Returns for each active degree of freedom a delta_i > 0 that can be used to numerically compute
+        //  */
+        // virtual void getGradientDeltas(Eigen::VectorXf& deltas) const = 0;
         virtual ~Robot() = 0;
     };
 

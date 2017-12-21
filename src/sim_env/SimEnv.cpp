@@ -9,6 +9,18 @@ sim_env::Logger::~Logger() = default;
 
 sim_env::Entity::~Entity() = default;
 
+sim_env::Ball::Ball() = default;
+
+sim_env::Ball::Ball(const Ball& other) = default;
+
+sim_env::Ball::Ball(Eigen::Vector3f lcenter, float lradius) :
+    center(lcenter), radius(lradius) {
+}
+
+sim_env::Ball::~Ball() = default;
+
+Ball& sim_env::Ball::operator=(const Ball& other) = default;
+
 sim_env::Link::~Link() = default;
 
 sim_env::Joint::~Joint() = default;
