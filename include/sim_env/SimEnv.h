@@ -821,6 +821,14 @@ namespace sim_env {
         virtual void stepPhysics(int steps=1) = 0;
 
         /**
+         * If the underlying world representation supports physics simulation,
+         * this function issues a physics simulation step. This version of the function
+         * fills the provided list of contacts with any contacts that occurred during the propagation.
+         * @param steps number of physics time steps to simulate.
+         */
+        virtual void stepPhysics(std::vector<Contact>& contacts, int steps=1) = 0;
+
+        /**
          * Returns whether the underlying world representation supports physics simulation or not.
          * @return whether physics is supported or not.
          */
