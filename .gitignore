@@ -30,3 +30,6 @@
 
 # Visual Studio Code Files
 .vscode/settings.json
+
+# CLion files
+.idea/*
