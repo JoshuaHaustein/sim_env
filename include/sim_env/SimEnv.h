@@ -14,11 +14,13 @@
 #include <mutex>
 #include <functional>
 #include <atomic>
-
+// Eigen imports
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
-
+// Boost imports
 #include <boost/format.hpp>
+// sim_env imports
+#include <sim_env/Grid.h>
 
 /**
  * This header file contains the definition of SimEnv. The idea behind SimEnv is to provide
@@ -196,6 +198,21 @@ namespace sim_env {
         float getDepth() {
             return max_corner[2] - min_corner[2];
         }
+
+        /**
+         *  Returns the extents of this bounding box, which are (width/2, height/2, depth/2)
+         */
+        Eigen::Vector3f extents() const {
+            return 0.5f * (max_corner - min_corner);
+        }
+
+        /**
+         *  Returns the center of this bounding box.
+         */
+        Eigen::Vector3f center() const {
+            return 0.5f * (min_corner + max_corner);
+        }
+
         void merge(const BoundingBox& other) {
             for (unsigned int i = 0; i < min_corner.size(); ++i) {
                 min_corner[i] = std::min(min_corner[i], other.min_corner[i]);
@@ -257,6 +274,16 @@ namespace sim_env {
         Eigen::Array2f acceleration_limits; // [min, max]
     };
 
+    struct Ball {
+        Eigen::Vector3f center;
+        float radius;
+        Ball();
+        Ball(Eigen::Vector3f center, float radius);
+        Ball(const Ball& other);
+        ~Ball();
+        Ball& operator=(const Ball& other);
+    };
+
     class Link : public virtual Entity  {
     public:
         virtual ~Link() = 0;
@@ -266,6 +293,29 @@ namespace sim_env {
         virtual void getConstChildJoints(std::vector<JointConstPtr>& child_joints) const = 0;
         virtual JointPtr getParentJoint() = 0;
         virtual JointConstPtr getConstParentJoint() const = 0;
+
+        /**
+         * Provides a set of balls that approximate the shape of this link.
+         * The ball positions are in global coordinates.
+         * @param balls - a vector to be filled with all balls, balls are appended to the vector
+         */
+        virtual void getBallApproximation(std::vector<Ball>& balls) const = 0;
+        /**
+         * Provides a set of balls that approximate  the shape of this link.
+         * The ball positions are in link frame.
+         * @param balls - a vector to be filled with all balls, balls are appended to the vector
+         */
+        virtual void getLocalBallApproximation(std::vector<Ball>& balls) const = 0;
+        /**
+         * Updates the global positions of the given approximation balls.
+         * @param balls - a vector containing a sufficient number of balls
+         * @param start - start iterator pointing to the first ball to update
+         * @param end - end itartor indicating where to stop. between end and stop there must be
+         *              sufficiently many balls to update (as many as getBallApproximation is providing)
+         */
+        virtual void updateBallApproximation(std::vector<Ball>& balls,
+                                          std::vector<Ball>::iterator& start,
+                                          std::vector<Ball>::iterator& end) const = 0;
         /**
          * Checks whether this Link collides with anything.
          * @return True if this Link collides with something
@@ -308,6 +358,8 @@ namespace sim_env {
 
         virtual void setMass(float mass) = 0;
         virtual float getMass() const = 0;
+        virtual void getCenterOfMass(Eigen::Vector3f& com) const = 0;
+        virtual void getLocalCenterOfMass(Eigen::Vector3f& com) const = 0;
         virtual float getGroundFriction() const = 0;
         virtual void setGroundFriction(float coeff) = 0;
     };
@@ -490,6 +542,14 @@ namespace sim_env {
         virtual bool isStatic() const = 0;
 
         /**
+         * Provides a set of balls that approximate the shape of this object.
+         * The ball positions are in global coordinates.
+         * @param balls - a vector to be filled with all balls
+         *               Any ball in the given vector is reused, i.e. the position updated. If the number of balls
+         *              does not suffice, additional balls are appended. If there are too many, the size is reduced.
+         */
+        virtual void getBallApproximation(std::vector<Ball>& balls) const = 0;
+        /**
          * Retrieves all links of this object and adds them to the given list.
          * @warning This method returns shared_ptrs. Do not store these references beyond the lifespan of this object.
          * @param links a vector in which all links are stored (not reset).
@@ -609,6 +669,10 @@ namespace sim_env {
          * @param controll_fn callback function with signature ControlCallback that
          */
         virtual void setController(ControlCallback controll_fn) = 0;
+        // /**
+        //  * Returns for each active degree of freedom a delta_i > 0 that can be used to numerically compute
+        //  */
+        // virtual void getGradientDeltas(Eigen::VectorXf& deltas) const = 0;
         virtual ~Robot() = 0;
     };
 
@@ -617,9 +681,12 @@ namespace sim_env {
     public:
         class Handle {
         public:
-            Handle();
+            Handle(bool valid_handle=true);
+            Handle(const Handle& other);
             ~Handle();
+            Handle& operator=(const Handle& other);
             unsigned int getID() const;
+            bool isValid() const;
         private:
             static std::atomic_uint _global_id_counter;
             unsigned int _id;
@@ -667,6 +734,17 @@ namespace sim_env {
                                   const Eigen::Vector4f& color=Eigen::Vector4f(0.0f, 0.0f, 0.0f, 1.0f),
                                   float width=0.1f) = 0;
 
+        /**
+         * Draws the given voxel grid. The grid is assumed to store a color for each cell.
+         * @param grid - a voxel grid that stores the color for each voxel
+         * @param old_handle (optional) - a handle to a previously drawn instance of a voxel grid that is supposed to
+         *      be replaced by this new drawing. Providing this may save resources, but you need to ensure that the new
+         *      grid has the same dimensions as the previous one.
+         * @return handle to delete this grid again
+         */
+        virtual Handle drawVoxelGrid(const grid::VoxelGrid<float, Eigen::Vector4f>& grid, const Handle& old_handle=Handle(false)) = 0;
+
+        virtual WorldPtr getWorld() const = 0;
         virtual void removeDrawing(const Handle& handle) = 0;
         virtual void removeAllDrawings() = 0;
 
@@ -716,6 +794,18 @@ namespace sim_env {
         virtual void getObjects(std::vector<ObjectConstPtr>& objects, bool exclude_robots=true) const = 0;
 
         /**
+         * Returns all objects stored in this world that overlap with the specified axis aligned
+         * bounding box.
+         * @param aabb - Axis aligned bounding box in world frame.
+         * @param objects - vector to store output in
+         * @param exclude_robots - if true, robots are not returned
+         */
+        virtual void getObjects(const BoundingBox& aabb, std::vector<ObjectPtr>& objects,
+                                bool exclude_robots=true) = 0;
+        virtual void getObjects(const BoundingBox& aabb, std::vector<ObjectConstPtr>& objects,
+                                bool exclude_robots=true) const = 0;
+
+        /**
          * Returns all robots stored in the world.
          * @warning This method returns shared_ptrs. Do not store these references beyond the lifespan of this world.
          * @param objects List to fill with objects. The list is not cleared.
@@ -729,6 +819,14 @@ namespace sim_env {
          * @param steps number of physics time steps to simulate.
          */
         virtual void stepPhysics(int steps=1) = 0;
+
+        /**
+         * If the underlying world representation supports physics simulation,
+         * this function issues a physics simulation step. This version of the function
+         * fills the provided list of contacts with any contacts that occurred during the propagation.
+         * @param steps number of physics time steps to simulate.
+         */
+        virtual void stepPhysics(std::vector<Contact>& contacts, int steps=1) = 0;
 
         /**
          * Returns whether the underlying world representation supports physics simulation or not.
@@ -750,6 +848,11 @@ namespace sim_env {
          * @return true / false
          */
         virtual bool isPhysicallyFeasible() = 0;
+
+        /**
+         * Clones this world. The returned world is identical to this world.
+         */
+        virtual WorldPtr clone() const = 0;
 
         /**
          * Checks whether there are any links that collide.

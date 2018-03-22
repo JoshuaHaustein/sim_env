@@ -3,9 +3,23 @@
 //
 #include "sim_env/SimEnv.h"
 
+using namespace sim_env;
+
 sim_env::Logger::~Logger() = default;
 
 sim_env::Entity::~Entity() = default;
+
+sim_env::Ball::Ball() = default;
+
+sim_env::Ball::Ball(const Ball& other) = default;
+
+sim_env::Ball::Ball(Eigen::Vector3f lcenter, float lradius) :
+    center(lcenter), radius(lradius) {
+}
+
+sim_env::Ball::~Ball() = default;
+
+Ball& sim_env::Ball::operator=(const Ball& other) = default;
 
 sim_env::Link::~Link() = default;
 
@@ -19,13 +33,30 @@ sim_env::World::~World() = default;
 
 sim_env::WorldViewer::~WorldViewer() = default;
 
-std::atomic_uint sim_env::WorldViewer::Handle::_global_id_counter(0);
+std::atomic_uint sim_env::WorldViewer::Handle::_global_id_counter(1);
 
-sim_env::WorldViewer::Handle::Handle() {
-    _id = _global_id_counter++;
+sim_env::WorldViewer::Handle::Handle(bool valid_handle) {
+    if (valid_handle) {
+        _id = _global_id_counter++;
+    } else {
+        _id = 0;
+    }
+}
+
+bool sim_env::WorldViewer::Handle::isValid() const {
+    return _id != 0;
+}
+
+sim_env::WorldViewer::Handle::Handle(const WorldViewer::Handle& other) {
+    _id = other._id;
 }
 
 sim_env::WorldViewer::Handle::~Handle() = default;
+
+WorldViewer::Handle& WorldViewer::Handle::operator=(const WorldViewer::Handle& other) {
+    _id = other._id;
+    return *this;
+}
 
 unsigned int sim_env::WorldViewer::Handle::getID() const {
     return _id;

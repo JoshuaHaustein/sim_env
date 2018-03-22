@@ -54,7 +54,7 @@ bool sim_env::PIDController::isTargetSatisfied(float current_state, float thresh
 float sim_env::PIDController::control(float current_state) {
     float error = _target - current_state;
     float delta_error = 0.0f;
-    if (not isnan(_prev_error)) {
+    if (not std::isnan(_prev_error)) {
         delta_error = error - _prev_error;
     }
     _prev_error = error;
