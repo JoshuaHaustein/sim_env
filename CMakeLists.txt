@@ -8,7 +8,7 @@ find_package(catkin REQUIRED COMPONENTS
         cmake_modules)
 
 ## System dependencies are found with CMake's conventions
-find_package(Eigen3 3.3 REQUIRED)
+find_package(Eigen3 REQUIRED)
 find_package(Boost REQUIRED)
 
 ## Uncomment this if the package has a setup.py. This macro ensures
