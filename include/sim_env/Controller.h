@@ -140,7 +140,7 @@ namespace sim_env {
     class PIDController : public Controller {
     public:
         PIDController(float kp=1.0, float ki=0.1, float kd=0.0);
-        ~PIDController();
+        virtual ~PIDController();
         void setKp(float kp);
         void setKi(float ki);
         void setKd(float kd);
@@ -199,6 +199,7 @@ namespace sim_env {
         virtual ~RobotVelocityController() = 0;
         virtual unsigned int getTargetDimension() = 0;
         virtual void setTargetVelocity(const Eigen::VectorXf& velocity) = 0;
+        virtual RobotPtr getRobot() const = 0;
         virtual bool control(const Eigen::VectorXf& positions,
                              const Eigen::VectorXf& velocities,
                              float timestep,
@@ -214,6 +215,7 @@ namespace sim_env {
         RobotPositionController(RobotPtr robot, RobotVelocityControllerPtr velocity_controller);
         ~RobotPositionController();
         void setTargetPosition(const Eigen::VectorXf& position);
+        RobotPtr getRobot() const;
         bool control(const Eigen::VectorXf& positions,
                      const Eigen::VectorXf& velocities,
                      float timestep,
