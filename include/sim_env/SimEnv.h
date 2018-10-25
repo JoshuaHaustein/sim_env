@@ -1048,6 +1048,11 @@ public:
     virtual bool restoreState() = 0;
 
     /**
+     *  Removes the last saved state without setting the world to it.
+     */
+    virtual void dropState() = 0;
+
+    /**
          * Returns a mutex to lock this world.
          * Any function that changes the state of this world should lock it first.
          * @return recursive mutex for this world
