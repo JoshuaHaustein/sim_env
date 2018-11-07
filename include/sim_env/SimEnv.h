@@ -915,10 +915,6 @@ public:
     virtual bool renderImage(const std::string& filename, unsigned int width, unsigned int height, bool include_drawings = false) = 0;
 
     /**
-     *  Creates a new ImageRenderer.
-     */
-    virtual ImageRendererPtr createImageRenderer() = 0;
-    /**
      *  Position the camera such that all bodies in the scene are visible.
      * @param include_drawings - if true, it also ensures that all user drawings are visible
      */
@@ -1143,6 +1139,13 @@ public:
          * @return shared pointer to a world viewer showing this world.
          */
     virtual WorldViewerPtr getViewer() = 0;
+
+    /**
+     * Returns an instance of an image renderer.
+     * The image renderer is independent of the Viewer. That is 
+     * @return shared pointer to an image renderer that allows rendering images from this world
+     */
+    virtual WorldViewer::ImageRendererPtr getImageRenderer() = 0;
 
     /**
          * Returns an instance of the logger used in the context of this environment.
