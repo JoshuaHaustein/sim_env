@@ -836,6 +836,17 @@ public:
              * @return handle to delete this grid again
              */
         virtual Handle drawVoxelGrid(const grid::VoxelGrid<float, Eigen::Vector4f>& grid, const Handle& old_handle = Handle(false)) = 0;
+
+        /**
+         * Remove the drawing with the given handle.
+         * If there is no drawing for that handle, this is a no-op.
+         */
+        virtual void removeDrawing(const Handle& handle) = 0;
+
+        /**
+         * Remove all drawings.
+         */
+        virtual void removeAllDrawings() = 0;
     };
     typedef std::shared_ptr<ImageRenderer> ImageRendererPtr;
     typedef std::shared_ptr<const ImageRenderer> ImageRendererConstPtr;
