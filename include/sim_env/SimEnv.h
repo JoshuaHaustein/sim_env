@@ -381,6 +381,14 @@ public:
         std::vector<Contact>& contacts)
         = 0;
 
+    /**
+     *  Return axis aligned bounding box in global frame.
+     */
+    virtual BoundingBox getBoundingBox() const = 0;
+    /**
+     *  Return axis aligned bounding box in local frame.
+     */
+    virtual BoundingBox getLocalBoundingBox() const = 0;
     virtual void setMass(float mass) = 0;
     virtual float getMass() const = 0;
     virtual void getCenterOfMass(Eigen::Vector3f& com) const = 0;
