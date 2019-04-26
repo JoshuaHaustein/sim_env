@@ -7,51 +7,61 @@
 
 using namespace sim_env;
 
-sim_env::PIDController::PIDController(float kp, float ki, float kd) {
+sim_env::PIDController::PIDController(float kp, float ki, float kd)
+{
     _kp = kp;
     _ki = ki;
     _kd = kd;
     reset();
 }
 
-sim_env::PIDController::~PIDController() {
+sim_env::PIDController::~PIDController()
+{
     // nothing to do here
 }
 
-void sim_env::PIDController::setKp(float kp) {
+void sim_env::PIDController::setKp(float kp)
+{
     _kp = kp;
 }
 
-void sim_env::PIDController::setKi(float ki) {
+void sim_env::PIDController::setKi(float ki)
+{
     _ki = ki;
 }
 
-void sim_env::PIDController::setKd(float kd) {
+void sim_env::PIDController::setKd(float kd)
+{
     _kd = kd;
 }
 
-void sim_env::PIDController::setGains(float kp, float ki, float kd) {
+void sim_env::PIDController::setGains(float kp, float ki, float kd)
+{
     setKp(kp);
     setKi(ki);
     setKd(kd);
 }
 
-void sim_env::PIDController::setTarget(float target_state) {
+void sim_env::PIDController::setTarget(float target_state)
+{
     if (target_state != _target) {
         reset();
         _target = target_state;
     }
 }
 
-float sim_env::PIDController::getTarget() const {
+float sim_env::PIDController::getTarget() const
+{
     return _target;
 }
 
-bool sim_env::PIDController::isTargetSatisfied(float current_state, float threshold) const {
+bool sim_env::PIDController::isTargetSatisfied(float current_state, float threshold) const
+{
     return std::fabs(current_state - _target) < threshold;
 }
 
-float sim_env::PIDController::control(float current_state) {
+float sim_env::PIDController::control(float current_state)
+{
     float error = _target - current_state;
     float delta_error = 0.0f;
     if (not std::isnan(_prev_error)) {
@@ -60,35 +70,39 @@ float sim_env::PIDController::control(float current_state) {
     _prev_error = error;
     _integral_part += error;
     float output = _kp * error + _ki * _integral_part + _kd * delta_error;
-//    if (isTargetSatisfied(current_state, 0.001f)) {
-//        auto logger = DefaultLogger::getInstance();
-//        std::stringstream ss;
-//        ss << "target is satisfied. output is " << output;
-//        ss << "error is " << error << " current state is " << current_state;
-//        ss << "kp: " << _kp << " ki" << _ki << "kd" << _kd;
-//        logger->logDebug(ss.str());
-//    }
+    //    if (isTargetSatisfied(current_state, 0.001f)) {
+    //        auto logger = DefaultLogger::getInstance();
+    //        std::stringstream ss;
+    //        ss << "target is satisfied. output is " << output;
+    //        ss << "error is " << error << " current state is " << current_state;
+    //        ss << "kp: " << _kp << " ki" << _ki << "kd" << _kd;
+    //        logger->logDebug(ss.str());
+    //    }
     return output;
 }
 
-void sim_env::PIDController::reset() {
+void sim_env::PIDController::reset()
+{
     _integral_part = 0.0;
     _prev_error = nanf("");
 }
 
 ////////////////////// IndependentMDPIDController //////////////////////////////
-IndependentMDPIDController::IndependentMDPIDController(float kp, float ki, float kd) {
+IndependentMDPIDController::IndependentMDPIDController(float kp, float ki, float kd)
+{
     _default_ki = ki;
     _default_kp = kp;
     _default_kd = kd;
     setGains(kp, ki, kd);
 }
 
-IndependentMDPIDController::~IndependentMDPIDController() {
+IndependentMDPIDController::~IndependentMDPIDController()
+{
     // nothing to do here.
 }
 
-void IndependentMDPIDController::setTarget(const Eigen::VectorXf &target_state) {
+void IndependentMDPIDController::setTarget(const Eigen::VectorXf& target_state)
+{
     if (target_state.size() != _controllers.size()) {
         throw std::runtime_error("[sim_env::IndependentMDPIDController::setTarget]"
                                  "Invalid input state dimension.");
@@ -98,15 +112,17 @@ void IndependentMDPIDController::setTarget(const Eigen::VectorXf &target_state) 
     }
 }
 
-void IndependentMDPIDController::getTarget(Eigen::VectorXf& target_state) const {
+void IndependentMDPIDController::getTarget(Eigen::VectorXf& target_state) const
+{
     target_state.resize(_controllers.size());
     for (size_t i = 0; i < _controllers.size(); ++i) {
         target_state[i] = _controllers.at(i).getTarget();
     }
 }
 
-void IndependentMDPIDController::control(Eigen::VectorXf &output,
-                                         const Eigen::VectorXf &current_state) {
+void IndependentMDPIDController::control(Eigen::VectorXf& output,
+    const Eigen::VectorXf& current_state)
+{
     if (_controllers.size() != current_state.size()) {
         throw std::runtime_error("[sim_env::IndependentMDPIDController::control]"
                                  "Invalid input state dimension.");
@@ -117,13 +133,15 @@ void IndependentMDPIDController::control(Eigen::VectorXf &output,
     }
 }
 
-void IndependentMDPIDController::reset() {
+void IndependentMDPIDController::reset()
+{
     for (auto& controller : _controllers) {
         controller.reset();
     }
 }
 
-bool IndependentMDPIDController::isTargetSatisfied(Eigen::VectorXf& current_state, float threshold) const {
+bool IndependentMDPIDController::isTargetSatisfied(Eigen::VectorXf& current_state, float threshold) const
+{
     bool target_satisfied = true;
     for (size_t i = 0; i < _controllers.size(); ++i) {
         target_satisfied = target_satisfied and _controllers.at(i).isTargetSatisfied(current_state[i], threshold);
@@ -131,77 +149,87 @@ bool IndependentMDPIDController::isTargetSatisfied(Eigen::VectorXf& current_stat
     return target_satisfied;
 }
 
-void IndependentMDPIDController::setGains(float kp, float ki, float kd) {
+void IndependentMDPIDController::setGains(float kp, float ki, float kd)
+{
     for (auto& controller : _controllers) {
         controller.setGains(kp, ki, kd);
     }
 }
 
-void IndependentMDPIDController::setGains(const Eigen::VectorXf& kps, const Eigen::VectorXf& kis, const Eigen::VectorXf& kds) {
+void IndependentMDPIDController::setGains(const Eigen::VectorXf& kps, const Eigen::VectorXf& kis, const Eigen::VectorXf& kds)
+{
     if (_controllers.size() != kps.size() or _controllers.size() != kis.size() or _controllers.size() != kds.size()) {
         throw std::runtime_error("[sim_env::IndependentMDPIDController::setGains]"
-                                         "Invalid input vector dimension.");
+                                 "Invalid input vector dimension.");
     }
     for (size_t i = 0; i < _controllers.size(); ++i) {
         _controllers.at(i).setGains(kps[i], kis[i], kds[i]);
     }
 }
 
-void IndependentMDPIDController::setKps(const Eigen::VectorXf& kps) {
+void IndependentMDPIDController::setKps(const Eigen::VectorXf& kps)
+{
     if (_controllers.size() != kps.size()) {
         throw std::runtime_error("[sim_env::IndependentMDPIDController::setKps]"
-                                         "Invalid input vector dimension.");
+                                 "Invalid input vector dimension.");
     }
     for (size_t i = 0; i < _controllers.size(); ++i) {
         _controllers.at(i).setKp(kps[i]);
     }
 }
 
-void IndependentMDPIDController::setKp(float kp) {
+void IndependentMDPIDController::setKp(float kp)
+{
     for (auto& controller : _controllers) {
         controller.setKp(kp);
     }
 }
 
-void IndependentMDPIDController::setKis(const Eigen::VectorXf& kis) {
+void IndependentMDPIDController::setKis(const Eigen::VectorXf& kis)
+{
     if (_controllers.size() != kis.size()) {
         throw std::runtime_error("[sim_env::IndependentMDPIDController::setKis]"
-                                         "Invalid input vector dimension.");
+                                 "Invalid input vector dimension.");
     }
     for (size_t i = 0; i < _controllers.size(); ++i) {
         _controllers.at(i).setKi(kis[i]);
     }
 }
 
-void IndependentMDPIDController::setKi(float ki) {
+void IndependentMDPIDController::setKi(float ki)
+{
     for (auto& controller : _controllers) {
         controller.setKi(ki);
     }
 }
 
-void IndependentMDPIDController::setKds(const Eigen::VectorXf& kds) {
+void IndependentMDPIDController::setKds(const Eigen::VectorXf& kds)
+{
     if (_controllers.size() != kds.size()) {
         throw std::runtime_error("[sim_env::IndependentMDPIDController::setKds]"
-                                         "Invalid input vector dimension.");
+                                 "Invalid input vector dimension.");
     }
     for (size_t i = 0; i < _controllers.size(); ++i) {
         _controllers.at(i).setKd(kds[i]);
     }
 }
 
-void IndependentMDPIDController::setKd(float kd) {
+void IndependentMDPIDController::setKd(float kd)
+{
     for (auto& controller : _controllers) {
         controller.setKd(kd);
     }
 }
 
-unsigned int IndependentMDPIDController::getStateDimension() {
-    return (unsigned int) _controllers.size();
+unsigned int IndependentMDPIDController::getStateDimension()
+{
+    return (unsigned int)_controllers.size();
 }
 
-void IndependentMDPIDController::setStateDimension(unsigned int dim) {
+void IndependentMDPIDController::setStateDimension(unsigned int dim)
+{
     if (dim != _controllers.size()) {
-        unsigned int prev_dim = (unsigned int) _controllers.size();
+        unsigned int prev_dim = (unsigned int)_controllers.size();
         _controllers.resize(dim);
         reset();
         for (unsigned int i = prev_dim; i < _controllers.size(); ++i) {
@@ -210,39 +238,56 @@ void IndependentMDPIDController::setStateDimension(unsigned int dim) {
     }
 }
 
+RobotController::~RobotController() = default;
 ///////////////////////////// RobotPositionController ///////////////////////////////
 RobotPositionController::RobotPositionController(RobotPtr robot,
-                                                 RobotVelocityControllerPtr velocity_controller):
-        _pid_controller(1.0, 0.0, 0.0),
-        _velocity_controller(velocity_controller),
-        _robot(robot) {
+    RobotVelocityControllerPtr velocity_controller)
+    : _pid_controller(1.0, 0.0, 0.0)
+    , _velocity_controller(velocity_controller)
+    , _robot(robot)
+{
 }
 
-RobotPositionController::~RobotPositionController() {
+RobotPositionController::~RobotPositionController()
+{
 }
 
-void RobotPositionController::setTargetPosition(const Eigen::VectorXf& position) {
+void RobotPositionController::setTarget(const Eigen::VectorXf& position)
+{
+    setTargetPosition(position);
+}
+
+void RobotPositionController::setTargetPosition(const Eigen::VectorXf& position)
+{
     if (_robot.expired()) {
         LoggerPtr logger = DefaultLogger::getInstance();
         logger->logErr("Can not access underlying robot; the pointer is not valid anymore!",
-                       "[sim_env::RobotPositionController::setTargetPosition]");
+            "[sim_env::RobotPositionController::setTargetPosition]");
     }
     RobotPtr robot = _robot.lock();
     LoggerPtr logger = robot->getWorld()->getLogger();
     std::stringstream ss;
     ss << "Setting target position " << position.transpose();
     logger->logDebug(ss.str(), "[sim_env::RobotPositionController::setTargetPosition]");
-    _pid_controller.setStateDimension((unsigned int) position.size());
+    _pid_controller.setStateDimension((unsigned int)position.size());
     _pid_controller.setTarget(position);
 }
 
-RobotPtr RobotPositionController::getRobot() const {
+unsigned int RobotPositionController::getTargetDimension() const
+{
+    auto robot = _robot.lock();
+    return robot->getNumActiveDOFs();
+}
+
+RobotPtr RobotPositionController::getRobot() const
+{
     return _robot.lock();
 }
 
-bool RobotPositionController::control(const Eigen::VectorXf &positions, const Eigen::VectorXf &velocities,
-                                      float timestep, RobotConstPtr robot,
-                                      Eigen::VectorXf &output) {
+bool RobotPositionController::control(const Eigen::VectorXf& positions, const Eigen::VectorXf& velocities,
+    float timestep, RobotConstPtr robot,
+    Eigen::VectorXf& output)
+{
     Eigen::VectorXf target_position;
     _pid_controller.getTarget(target_position);
     if (target_position.size() != robot->getActiveDOFs().size()) {
@@ -255,7 +300,7 @@ bool RobotPositionController::control(const Eigen::VectorXf &positions, const Ei
         return false;
     }
     Eigen::VectorXf target_velocities(positions.size());
-//    _pid_controller.control(target_velocities, positions);
+    //    _pid_controller.control(target_velocities, positions);
     // TODO see whether we still can use a PID somehow
     // TODO this is not moving in a straight line. we could make the decision on
     // TODO whether to move in a straight line or not dependent on a parameter
@@ -299,6 +344,11 @@ bool RobotPositionController::control(const Eigen::VectorXf &positions, const Ei
 //}
 
 RobotVelocityController::~RobotVelocityController() = default;
+
+void RobotVelocityController::setTarget(const Eigen::VectorXf& target)
+{
+    setTargetVelocity(target);
+}
 
 //void RobotVelocityController::setTargetVelocity(const Eigen::VectorXf &velocity) {
 //    if (_robot.expired()) {

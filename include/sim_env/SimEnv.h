@@ -307,6 +307,13 @@ struct Ball {
     Ball& operator=(const Ball& other);
 };
 
+// Represents the geometry of a link as a mesh (3d) or polygon (2d)
+struct Geometry {
+    std::vector<Eigen::Vector3f> vertices; // in case of a polygon, z coordinate is zero and subsequent vertices are edge connected
+    std::vector<std::tuple<unsigned int, unsigned int, unsigned int>> triangles; // empty in case geometry is 2D(polygon)
+    bool is_polygon; // true if geometry is 2d
+};
+
 class Link : public virtual Entity {
 public:
     virtual ~Link() = 0;
@@ -339,6 +346,13 @@ public:
     virtual void updateBallApproximation(std::vector<Ball>& balls,
         std::vector<Ball>::iterator& start,
         std::vector<Ball>::iterator& end) const = 0;
+
+    /**
+      * Return the geometries of this link.
+      */
+    virtual std::vector<Geometry> getGeometries() const = 0;
+    virtual void getGeometries(std::vector<Geometry>& geoms) const = 0;
+
     /**
          * Checks whether this Link collides with anything.
          * @return True if this Link collides with something
