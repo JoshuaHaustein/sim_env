@@ -266,9 +266,9 @@ void RobotPositionController::setTargetPosition(const Eigen::VectorXf& position)
     }
     RobotPtr robot = _robot.lock();
     LoggerPtr logger = robot->getWorld()->getLogger();
-    std::stringstream ss;
-    ss << "Setting target position " << position.transpose();
-    logger->logDebug(ss.str(), "[sim_env::RobotPositionController::setTargetPosition]");
+    // std::stringstream ss;
+    // ss << "Setting target position " << position.transpose();
+    // logger->logDebug(ss.str(), "[sim_env::RobotPositionController::setTargetPosition]");
     _pid_controller.setStateDimension((unsigned int)position.size());
     _pid_controller.setTarget(position);
 }
