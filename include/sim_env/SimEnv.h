@@ -311,7 +311,7 @@ struct Ball {
 struct Geometry {
     // In case of a polygon, z coordinate is zero and subsequent vertices are edge connected.
     // The vertices then form a counter-clockwise oriented polygon.
-    std::vector<Eigen::Vector3f> vertices; 
+    std::vector<Eigen::Vector3f> vertices;
     std::vector<std::tuple<unsigned int, unsigned int, unsigned int>> triangles; // empty in case geometry is 2D(polygon)
     bool is_polygon; // true if geometry is 2d
 };
@@ -401,8 +401,31 @@ public:
     virtual float getMass() const = 0;
     virtual void getCenterOfMass(Eigen::Vector3f& com) const = 0;
     virtual void getLocalCenterOfMass(Eigen::Vector3f& com) const = 0;
-    virtual float getGroundFriction() const = 0;
-    virtual void setGroundFriction(float coeff) = 0;
+    /**
+     * Return the friction coefficient mu of this link when it is standing on a support surface.
+     */
+    virtual float getGroundFrictionCoefficient() const = 0;
+    virtual void setGroundFrictionCoefficient(float mu) = 0;
+    /**
+     * Return the maximal frictional torque, i.e. m = mu * \int_A |x| p(x) dA,
+     * where A is the support region, dA the differential element of area A, 
+     * x the position of dA, and p(x) the pressure at x
+     */
+    virtual float getGroundFrictionLimitTorque() const = 0;
+    /**
+     * Return the maximal frictional force, i.e. f = mu * m * g;
+     */
+    virtual float getGroundFrictionLimitForce() const = 0;
+    /**
+     * Set the value of the integral in the ground friction limit torque,
+     * i.e. in m = mu * \int_A |x| p(x) dA, set the value of \int_A |x| p(x) dA.
+     */
+    virtual void setGroundFrictionTorqueIntegral(float val) = 0;
+    /**
+     *  Return the friction coefficient of this link's surface.
+     */
+    virtual float getContactFriction() const = 0;
+    virtual void setContactFriction(float mu) = 0;
     /**
      *  Enable or disable this link. If disabled, the link can not collide with anything.
      * @param b_enable - True -> enabled, False -> disabled
@@ -698,7 +721,7 @@ public:
     virtual float getMass() const = 0;
     virtual float getInertia() const = 0; // TODO this should return a matrix
     virtual BoundingBox getLocalAABB() const = 0;
-    virtual float getGroundFriction() const = 0;
+    //     virtual float getGroundFriction() const = 0;
     /**
      * Enable or disable this object. A disabled object does not physically interact (i.e. collide)
      * with any other object. By default, every object is enabled.
