@@ -751,10 +751,6 @@ public:
          * @param controll_fn callback function with signature ControlCallback that
          */
     virtual void setController(ControlCallback controll_fn) = 0;
-    // /**
-    //  * Returns for each active degree of freedom a delta_i > 0 that can be used to numerically compute
-    //  */
-    // virtual void getGradientDeltas(Eigen::VectorXf& deltas) const = 0;
     virtual ~Robot() = 0;
 };
 

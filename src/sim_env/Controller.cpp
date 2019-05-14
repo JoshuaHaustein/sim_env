@@ -238,8 +238,10 @@ void IndependentMDPIDController::setStateDimension(unsigned int dim)
     }
 }
 
+//*************************** RobotController ************************************//
 RobotController::~RobotController() = default;
-///////////////////////////// RobotPositionController ///////////////////////////////
+
+//*************************** RobotPositionController ****************************//
 RobotPositionController::RobotPositionController(RobotPtr robot,
     RobotVelocityControllerPtr velocity_controller)
     : _pid_controller(1.0, 0.0, 0.0)
@@ -250,6 +252,16 @@ RobotPositionController::RobotPositionController(RobotPtr robot,
 
 RobotPositionController::~RobotPositionController()
 {
+}
+
+void RobotPositionController::setPositionProjectionFn(PositionProjectionFn pos_constraint)
+{
+    _pos_proj_fn = pos_constraint;
+}
+
+void RobotPositionController::setVelocityProjectionFn(VelocityProjectionFn vel_constraint)
+{
+    _vel_proj_fn = vel_constraint;
 }
 
 void RobotPositionController::setTarget(const Eigen::VectorXf& position)
@@ -299,6 +311,10 @@ bool RobotPositionController::control(const Eigen::VectorXf& positions, const Ei
         logger->logErr(ss.str());
         return false;
     }
+    // project target position onto constraint set (this should only do anything if the user set invalid target positions)
+    if (_pos_proj_fn) {
+        _pos_proj_fn(target_position, robot);
+    }
     Eigen::VectorXf target_velocities(positions.size());
     //    _pid_controller.control(target_velocities, positions);
     // TODO see whether we still can use a PID somehow
@@ -331,6 +347,16 @@ bool RobotPositionController::control(const Eigen::VectorXf& positions, const Ei
         float abs_max_break_velocity = std::sqrt(2.0f * abs_position_error * abs_max_break_accel);
         // finally, set the target velocity such maximal, but such that we do not overshoot.
         target_velocities[idx] = velocity_sign * std::min(abs_max_break_velocity, std::abs(target_velocities[idx]));
+    }
+    { // TODO delete this block
+
+        auto robot = _robot.lock();
+        auto world = robot->getWorld();
+        auto logger = world->getLogger();
+        logger->logDebug(boost::format("Position error: x:%1%, y: %2%, theta: %3%") % delta_position[0] % delta_position[1] % delta_position[2], "[sim_env::PositionController]");
+    }
+    if (_vel_proj_fn) {
+        _vel_proj_fn(target_velocities, robot);
     }
     _velocity_controller->setTargetVelocity(target_velocities);
     _velocity_controller->control(positions, velocities, timestep, robot, output);

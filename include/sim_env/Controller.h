@@ -194,7 +194,23 @@ private:
 
 class RobotController {
 public:
+    /***
+     * Both PositionProjectionFn and VelocityProjectionFn are functions that are expected to project
+     * a given position (or velocity respectively) onto a valid constraint set.
+     * Empty functions are considered as no constraint. 
+     * The first argument is the target position/velocity that the controller aims to move to fulfill its target.
+     * The projection function may overwrite these target values as desired.
+     * The second argument is a pointer to the robot that is being controlled. It can be used to obtain additional information
+     * about the robot's state or even about the current world state, by accessing the world through robot->getWorld();
+     */
+    typedef std::function<void(Eigen::VectorXf&, sim_env::RobotConstPtr)> PositionProjectionFn;
+    typedef std::function<void(Eigen::VectorXf&, sim_env::RobotConstPtr)> VelocityProjectionFn;
+
     virtual ~RobotController() = 0;
+    // Set position projection function to use in following control iterations.
+    virtual void setPositionProjectionFn(PositionProjectionFn pos_constraint) = 0;
+    // Set velocity projection function to use in following control iterations.
+    virtual void setVelocityProjectionFn(VelocityProjectionFn vel_constraint) = 0;
     virtual void setTarget(const Eigen::VectorXf& target) = 0;
     virtual unsigned int getTargetDimension() const = 0;
     virtual RobotPtr getRobot() const = 0;
@@ -225,6 +241,8 @@ class RobotPositionController : public RobotController {
 public:
     RobotPositionController(RobotPtr robot, RobotVelocityControllerPtr velocity_controller);
     ~RobotPositionController();
+    void setPositionProjectionFn(PositionProjectionFn pos_constraint) override;
+    void setVelocityProjectionFn(VelocityProjectionFn vel_constraint) override;
     void setTarget(const Eigen::VectorXf& target) override;
     void setTargetPosition(const Eigen::VectorXf& position);
     unsigned int getTargetDimension() const override;
@@ -235,6 +253,10 @@ public:
         RobotConstPtr robot,
         Eigen::VectorXf& output) override;
     IndependentMDPIDController& getPIDController();
+
+protected:
+    PositionProjectionFn _pos_proj_fn;
+    VelocityProjectionFn _vel_proj_fn;
 
 private:
     IndependentMDPIDController _pid_controller;
