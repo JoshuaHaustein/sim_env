@@ -295,6 +295,11 @@ struct DOFInformation {
     Eigen::Array2f position_limits; // [min, max]
     Eigen::Array2f velocity_limits; // [min, max]
     Eigen::Array2f acceleration_limits; // [min, max]
+    /**
+     * If DOF is cyclic the position can take any value specified within position_limits,
+     * and the position can wrap around the interval's limits (like orientations in [-pi, pi))
+     */
+    bool cyclic;
 };
 
 struct Ball {
@@ -408,7 +413,7 @@ public:
     virtual void setGroundFrictionCoefficient(float mu) = 0;
     /**
      * Return the maximal frictional torque, i.e. m = mu * \int_A |x| p(x) dA,
-     * where A is the support region, dA the differential element of area A, 
+     * where A is the support region, dA the differential element of area A,
      * x the position of dA, and p(x) the pressure at x
      */
     virtual float getGroundFrictionLimitTorque() const = 0;
@@ -772,7 +777,7 @@ public:
 
     class ImageRenderer {
         /**
-         * An ImageRenderer allows you to render camera images of a scene. 
+         * An ImageRenderer allows you to render camera images of a scene.
          * The underlying implementation guarantees that an ImageRenderer can also be used
          * in non-GUI threads.
          */
@@ -803,7 +808,7 @@ public:
          * Sets whether to show the object/robot with the given name when rendering images.
          * By default all objects/robots are shown.
          * @param name - name of the object to show or hide
-         * @param visible - if true, show it, else hide. 
+         * @param visible - if true, show it, else hide.
          */
         virtual void setVisible(const std::string& name, bool visible) = 0;
 
@@ -811,7 +816,7 @@ public:
          * Set the color of the object/robot with the given name.
          * By default all objects/robots are shown.
          * @param name - name of the object to show or hide
-         * @param visible - if true, show it, else hide. 
+         * @param visible - if true, show it, else hide.
          */
         virtual void setColor(const std::string& name, const Eigen::Vector4f& color) = 0;
         /**
@@ -978,14 +983,14 @@ public:
      * Set the color of the object/robot with the given name.
      * By default all objects/robots are shown.
      * @param name - name of the object to show or hide
-     * @param visible - if true, show it, else hide. 
+     * @param visible - if true, show it, else hide.
      */
     virtual void setColor(const std::string& name, const Eigen::Vector4f& color) = 0;
     /**
      * Sets whether to show the object/robot with the given name in the viewer.
      * By default all objects/robots are shown.
      * @param name - name of the object to show or hide
-     * @param visible - if true, show it, else hide. 
+     * @param visible - if true, show it, else hide.
      */
     virtual void setVisible(const std::string& name, bool visible) = 0;
 };
@@ -1197,7 +1202,7 @@ public:
 
     /**
      * Returns an instance of an image renderer.
-     * The image renderer is independent of the Viewer. That is 
+     * The image renderer is independent of the Viewer. That is
      * @return shared pointer to an image renderer that allows rendering images from this world
      */
     virtual WorldViewer::ImageRendererPtr getImageRenderer() = 0;

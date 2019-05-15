@@ -296,6 +296,15 @@ RobotPtr RobotPositionController::getRobot() const
     return _robot.lock();
 }
 
+inline float cyclicPositionError(const Eigen::Array2f& pos_range, float pos, float target) {
+    float error = target - pos;
+    float overflow_error = pos_range[1] - pos + target - pos_range[0];
+    float underflow_error = pos_range[0] - pos + target - pos_range[1];
+    error = std::abs(error) < std::abs(overflow_error) ? error : overflow_error;
+    error = std::abs(error) < std::abs(underflow_error) ? error : underflow_error;
+    return error;
+}
+
 bool RobotPositionController::control(const Eigen::VectorXf& positions, const Eigen::VectorXf& velocities,
     float timestep, RobotConstPtr robot,
     Eigen::VectorXf& output)
@@ -320,41 +329,50 @@ bool RobotPositionController::control(const Eigen::VectorXf& positions, const Ei
     // TODO see whether we still can use a PID somehow
     // TODO this is not moving in a straight line. we could make the decision on
     // TODO whether to move in a straight line or not dependent on a parameter
-    Eigen::ArrayX2f velocity_limits = robot->getDOFVelocityLimits();
-    Eigen::ArrayX2f acceleration_limits = robot->getDOFAccelerationLimits();
-    Eigen::VectorXf delta_position = target_position - positions;
-    for (int idx = 0; idx < delta_position.size(); ++idx) {
+    // Eigen::ArrayX2f velocity_limits = robot->getDOFVelocityLimits();
+    // Eigen::ArrayX2f acceleration_limits = robot->getDOFAccelerationLimits();
+    // Eigen::VectorXf delta_position = target_position - positions;
+    Eigen::VectorXi dof_indices = robot->getActiveDOFs();
+    assert(dof_indices.size() == positions.size());
+    DOFInformation dof_info;
+    for (int idx = 0; idx < dof_indices.size(); ++idx) {
+        // get dof information
+        robot->getDOFInformation(dof_indices[idx], dof_info);
+        float delta_position = target_position[idx] - positions[idx];
+        if (dof_info.cyclic) {
+            delta_position = cyclicPositionError(dof_info.position_limits, positions[idx], target_position[idx]);
+        }
         // first, command max velocity for each dof separately
         float velocity_sign(1.0f);
-        if (std::signbit(delta_position[idx])) {
+        if (std::signbit(delta_position)) {
             // need negative velocity
-            target_velocities[idx] = velocity_limits(idx, 0);
+            target_velocities[idx] = dof_info.velocity_limits[0];
             assert(std::signbit(target_velocities[idx]));
             velocity_sign = -1.0f;
         } else {
             // need positive velocity
-            target_velocities[idx] = velocity_limits(idx, 1);
+            target_velocities[idx] = dof_info.velocity_limits[1];
             velocity_sign = 1.0f;
         }
         // next compute the maximum velocity we can have to not overshoot
-        float abs_position_error = std::abs(delta_position[idx]);
+        float abs_position_error = std::abs(delta_position);
         float abs_max_break_accel = 0.0f;
         if (std::signbit(velocities[idx])) {
-            abs_max_break_accel = std::abs(acceleration_limits(idx, 1));
+            abs_max_break_accel = std::abs(dof_info.acceleration_limits[1]);
         } else {
-            abs_max_break_accel = std::abs(acceleration_limits(idx, 0));
+            abs_max_break_accel = std::abs(dof_info.acceleration_limits[0]);
         }
         float abs_max_break_velocity = std::sqrt(2.0f * abs_position_error * abs_max_break_accel);
         // finally, set the target velocity such maximal, but such that we do not overshoot.
         target_velocities[idx] = velocity_sign * std::min(abs_max_break_velocity, std::abs(target_velocities[idx]));
     }
-    { // TODO delete this block
+    // { // TODO delete this block
 
-        auto robot = _robot.lock();
-        auto world = robot->getWorld();
-        auto logger = world->getLogger();
-        logger->logDebug(boost::format("Position error: x:%1%, y: %2%, theta: %3%") % delta_position[0] % delta_position[1] % delta_position[2], "[sim_env::PositionController]");
-    }
+    //     auto robot = _robot.lock();
+    //     auto world = robot->getWorld();
+    //     auto logger = world->getLogger();
+    //     logger->logDebug(boost::format("Position error: x:%1%, y: %2%, theta: %3%") % delta_position[0] % delta_position[1] % delta_position[2], "[sim_env::PositionController]");
+    // }
     if (_vel_proj_fn) {
         _vel_proj_fn(target_velocities, robot);
     }
