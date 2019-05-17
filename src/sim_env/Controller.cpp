@@ -296,7 +296,8 @@ RobotPtr RobotPositionController::getRobot() const
     return _robot.lock();
 }
 
-inline float cyclicPositionError(const Eigen::Array2f& pos_range, float pos, float target) {
+inline float cyclicPositionError(const Eigen::Array2f& pos_range, float pos, float target)
+{
     float error = target - pos;
     float overflow_error = pos_range[1] - pos + target - pos_range[0];
     float underflow_error = pos_range[0] - pos + target - pos_range[1];
@@ -453,3 +454,113 @@ void RobotVelocityController::setTarget(const Eigen::VectorXf& target)
 //    RobotPtr robot = _robot.lock();
 //    return robot->getWorld()->getLogger();
 //}
+
+SE2RobotPositionController::SE2RobotPositionController(RobotPtr robot, RobotVelocityControllerPtr velocity_controller)
+    : _robot(robot)
+    , _velocity_controller(velocity_controller)
+{
+    assert(robot->getNumDOFs() >= 3);
+    assert(!robot->isStatic());
+    // velocity limits
+    auto dof_vel_limits = robot->getDOFVelocityLimits();
+    float x_limit = std::min(std::abs(dof_vel_limits(0, 0)), std::abs(dof_vel_limits(0, 1)));
+    float y_limit = std::min(std::abs(dof_vel_limits(1, 0)), std::abs(dof_vel_limits(1, 1)));
+    _cartesian_vel_limit = std::min(x_limit, y_limit);
+    _angular_vel_limit = std::min(std::abs(dof_vel_limits(2, 0)), std::abs(dof_vel_limits(2, 1)));
+    // accelaration limits
+    auto dof_acc_limits = robot->getDOFAccelerationLimits();
+    x_limit = std::min(std::abs(dof_acc_limits(0, 0)), std::abs(dof_acc_limits(0, 1)));
+    y_limit = std::min(std::abs(dof_acc_limits(1, 0)), std::abs(dof_acc_limits(1, 1)));
+    _cartesian_acc_limit = std::min(x_limit, y_limit);
+    _angular_acc_limit = std::min(std::abs(dof_acc_limits(2, 0)), std::abs(dof_acc_limits(2, 1)));
+    _set_point.resize(3);
+}
+
+SE2RobotPositionController::~SE2RobotPositionController()
+{
+}
+
+void SE2RobotPositionController::setPositionProjectionFn(PositionProjectionFn pos_constraint)
+{
+    _pos_proj_fn = pos_constraint;
+}
+
+void SE2RobotPositionController::setVelocityProjectionFn(VelocityProjectionFn vel_constraint)
+{
+    _vel_proj_fn = vel_constraint;
+}
+
+void SE2RobotPositionController::setTarget(const Eigen::VectorXf& target)
+{
+    static const std::string log_prefix("[SE2RobotPositionController::setTarget]");
+    if (target.size() != 3) {
+        auto robot = getRobot();
+        auto logger = robot->getWorld()->getLogger();
+        logger->logErr(boost::format("Target has invalid dimension. Expected dimension is 3, actual dimension is %1%") % target.size(), log_prefix);
+        return;
+    }
+    _last_target = target;
+}
+
+void SE2RobotPositionController::setTargetPosition(const Eigen::VectorXf& position)
+{
+    setTarget(position);
+}
+
+unsigned int SE2RobotPositionController::getTargetDimension() const
+{
+    return 3;
+}
+
+RobotPtr SE2RobotPositionController::getRobot() const
+{
+    auto robot = _robot.lock();
+    if (!robot) {
+        std::logic_error("[SE2RobotPositionController::getRobot] Could not acquire robot. Weak pointer expired.");
+    }
+    return robot;
+}
+
+bool SE2RobotPositionController::control(const Eigen::VectorXf& positions,
+    const Eigen::VectorXf& velocities,
+    float timestep,
+    RobotConstPtr robot,
+    Eigen::VectorXf& output)
+{
+    static const std::string log_prefix("[SE2RobotPositionController::control]");
+    auto logger = robot->getConstWorld()->getConstLogger();
+    if (_last_target.size() != 3) {
+        logger->logWarn("No target set. Can not control any position", log_prefix);
+        return false;
+    }
+    assert(positions.size() >= 3);
+    // compute error in cartesian position
+    Eigen::Vector2f cart_error = _last_target.head(2) - positions.head(2);
+    float cart_error_norm = cart_error.norm();
+    if (cart_error_norm > 0.0f) {
+        cart_error /= cart_error_norm;
+    }
+    // compute the maximum velocity we can have to not overshoot
+    float abs_max_break_velocity = std::sqrt(2.0f * cart_error_norm * _cartesian_acc_limit);
+    float cart_vel = std::min(abs_max_break_velocity, _cartesian_vel_limit);
+    // do the same for angular velocity
+    float angular_error = _last_target[2] - positions[2];
+    float angular_error_norm = std::abs(angular_error);
+    float max_break_velocity_angular = std::sqrt(2.0f * angular_error_norm * _angular_acc_limit);
+    float omega = std::min(max_break_velocity_angular, _angular_vel_limit);
+    // now compute how much time we will need for each to reach its destination
+    // TODO double check whether the math below checks out
+    float t_angular = angular_error_norm / omega - 0.5f * omega / _angular_acc_limit;
+    float t_cart = cart_error_norm / cart_vel - 0.5f * cart_vel / _cartesian_acc_limit;
+    if (t_cart < t_angular) { // we will take more time to reach our angle destination, slow down cartesian
+        float a = -_cartesian_acc_limit * t_angular;
+        float b = std::sqrt(_cartesian_acc_limit * _cartesian_acc_limit * t_angular * t_angular + 2.0f * _cartesian_acc_limit * cart_error_norm);
+        cart_vel = std::max(a + b, a - b);
+    } else { // we will take more time to reach our cartesian destination, slow down angular
+        float a = -_angular_acc_limit * t_cart;
+        float b = std::sqrt(_angular_acc_limit * _angular_acc_limit * t_cart * t_cart + 2.0f * _angular_acc_limit * angular_error_norm);
+        omega = std::max(a + b, a - b);
+    }
+    _set_point.head(2) = cart_vel * cart_error;
+    _set_point[2] = omega * angular_error / angular_error_norm;
+}

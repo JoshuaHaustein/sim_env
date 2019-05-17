@@ -235,8 +235,8 @@ public:
 };
 
 /**
-     * Robot position controller - uses an Independent MDPIDController to control the position of a robot.
-     */
+  * Robot position controller controls the position of each DOF of a robot individually.
+  */
 class RobotPositionController : public RobotController {
 public:
     RobotPositionController(RobotPtr robot, RobotVelocityControllerPtr velocity_controller);
@@ -260,6 +260,40 @@ protected:
 
 private:
     IndependentMDPIDController _pid_controller;
+    RobotVelocityControllerPtr _velocity_controller;
+    RobotWeakPtr _robot;
+};
+
+/**
+ *  A position controller for a planar holonomic robot.
+ */
+class SE2RobotPositionController : public RobotController {
+public:
+    SE2RobotPositionController(RobotPtr robot, RobotVelocityControllerPtr velocity_controller);
+    ~SE2RobotPositionController();
+    void setPositionProjectionFn(PositionProjectionFn pos_constraint) override;
+    void setVelocityProjectionFn(VelocityProjectionFn vel_constraint) override;
+    void setTarget(const Eigen::VectorXf& target) override;
+    void setTargetPosition(const Eigen::VectorXf& position);
+    unsigned int getTargetDimension() const override;
+    RobotPtr getRobot() const override;
+    bool control(const Eigen::VectorXf& positions,
+        const Eigen::VectorXf& velocities,
+        float timestep,
+        RobotConstPtr robot,
+        Eigen::VectorXf& output) override;
+
+protected:
+    PositionProjectionFn _pos_proj_fn;
+    VelocityProjectionFn _vel_proj_fn;
+    float _cartesian_vel_limit;
+    float _cartesian_acc_limit;
+    float _angular_vel_limit;
+    float _angular_acc_limit;
+
+private:
+    Eigen::VectorXf _last_target;
+    Eigen::VectorXf _set_point;
     RobotVelocityControllerPtr _velocity_controller;
     RobotWeakPtr _robot;
 };
