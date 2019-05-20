@@ -292,10 +292,10 @@ protected:
     float _angular_acc_limit;
 
 private:
+    RobotWeakPtr _robot;
+    RobotVelocityControllerPtr _velocity_controller;
     Eigen::VectorXf _last_target;
     Eigen::VectorXf _set_point;
-    RobotVelocityControllerPtr _velocity_controller;
-    RobotWeakPtr _robot;
 };
 }
 
