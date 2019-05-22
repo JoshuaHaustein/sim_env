@@ -514,9 +514,9 @@ inline float shortestSO2Direction(float val_1, float val_2)
 void SE2RobotPositionController::setTarget(const Eigen::VectorXf& target)
 {
     static const std::string log_prefix("[SE2RobotPositionController::setTarget]");
-    auto robot = getRobot();
-    auto logger = robot->getWorld()->getLogger();
     if (target.size() != 3) {
+        auto robot = getRobot();
+        auto logger = robot->getWorld()->getLogger();
         logger->logErr(boost::format("Target has invalid dimension. Expected dimension is 3, actual dimension is %1%") % target.size(), log_prefix);
         return;
     }
@@ -524,7 +524,7 @@ void SE2RobotPositionController::setTarget(const Eigen::VectorXf& target)
     // normalize target orientation
     _last_target[2] = normlizeOrientation(_last_target[2]);
 
-    logger->logDebug(boost::format("Target %1%, %2%, %3%") % _last_target[0] % _last_target[1] % _last_target[2], log_prefix);
+    // logger->logDebug(boost::format("Target %1%, %2%, %3%") % _last_target[0] % _last_target[1] % _last_target[2], log_prefix);
 }
 
 void SE2RobotPositionController::setTargetPosition(const Eigen::VectorXf& position)
