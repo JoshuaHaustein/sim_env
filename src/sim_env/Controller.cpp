@@ -575,44 +575,49 @@ bool SE2RobotPositionController::control(const Eigen::VectorXf& positions,
     float angular_error_norm = std::abs(angular_error);
     float max_break_velocity_angular = std::sqrt(2.0f * angular_error_norm * _angular_acc_limit);
     float omega = std::min(max_break_velocity_angular, _angular_vel_limit);
-    // debug log
-    // logger->logDebug(boost::format("cart_error: %1%, cart_vel: %2%, angular_error: %3%, angular_vel: %4%") % cart_error_norm % cart_vel % angular_error % omega, log_prefix);
-    // now compute how much time we will need for each to reach its destination
-    // we travel for some time at max velocity, followed by a decelaration phase
-    // in the decelaration we slow down from v to 0, i.e. its duration is v / a. The distance we travel
-    // in the decelaration is 0.5f * v / a. Accordingly, the time we are at the max velocity is t = s / v - 0.5 * v / a.
-    // If we are in the deceleration phase already, t becomes negative.
-    float t_angular_plateau = 0.0f;
-    if (angular_error_norm > 0.0f) {
-        t_angular_plateau = angular_error_norm / omega - 0.5f * omega / _angular_acc_limit;
+    // if we are at our target position, command zero velocity, else compute a velocity taking us to our target
+    if (angular_error_norm < 1e-4 and cart_error_norm < 1e-4) {
+        _set_point.setZero();
+    } else {
+        // debug log
+        // logger->logDebug(boost::format("cart_error: %1%, cart_vel: %2%, angular_error: %3%, angular_vel: %4%") % cart_error_norm % cart_vel % angular_error % omega, log_prefix);
+        // now compute how much time we will need for each to reach its destination
+        // we travel for some time at max velocity, followed by a decelaration phase
+        // in the decelaration we slow down from v to 0, i.e. its duration is v / a. The distance we travel
+        // in the decelaration is 0.5f * v / a. Accordingly, the time we are at the max velocity is t = s / v - 0.5 * v / a.
+        // If we are in the deceleration phase already, t becomes negative.
+        float t_angular_plateau = 0.0f;
+        if (angular_error_norm > 0.0f) {
+            t_angular_plateau = angular_error_norm / omega - 0.5f * omega / _angular_acc_limit;
+        }
+        float t_cart_plateau = 0.0f;
+        if (cart_error_norm > 0.0f) {
+            t_cart_plateau = cart_error_norm / cart_vel - 0.5f * cart_vel / _cartesian_acc_limit;
+        }
+        float t_angular = std::max(t_angular_plateau, 0.0f) + omega / _angular_acc_limit;
+        float t_cart = std::max(t_cart_plateau, 0.0f) + cart_vel / _cartesian_acc_limit;
+        // logger->logDebug(boost::format("Estimated duration till target, cart: %1%, angular %2%") % t_cart % t_angular, log_prefix);
+        if (t_cart < t_angular) { // we will take more time to reach our angle destination, slow down cartesian
+            float a = _cartesian_acc_limit * t_angular;
+            float b = _cartesian_acc_limit * _cartesian_acc_limit * t_angular * t_angular - 2.0f * _cartesian_acc_limit * cart_error_norm;
+            assert(b >= 0.0f);
+            cart_vel = a - std::sqrt(b);
+        } else { // we will take more time to reach our cartesian destination, slow down angular
+            float a = _angular_acc_limit * t_cart;
+            float b = _angular_acc_limit * _angular_acc_limit * t_cart * t_cart - 2.0f * _angular_acc_limit * angular_error_norm;
+            assert(b >= 0.0f);
+            omega = a - std::sqrt(b);
+        }
+        // logger->logDebug(boost::format("Commanded velocities: cart: %1%, angular: %2%") % cart_vel % omega, log_prefix);
+        // logger->logDebug(boost::format("Cartesian velocity direction (x, y): %1%, %2%") % cart_error[0] % cart_error[1], log_prefix);
+        _set_point.head(2) = cart_vel * cart_error;
+        _set_point[2] = omega * angular_error / angular_error_norm;
+        // TODO We should also define the velocities during acceleration phase. For large position errors and max velocities,
+        // TODO it takes the robot different amount of time to accelerate to the respective target velocity for each DoF.
+        // TODO Hence, the robot will not move all the time in the direction that we command (this depends on the underlying velocity controller of course).
+        // TODO Alternatively, could define a velocity controller that operates in the same way as this position controller, i.e.
+        // TODO one that ensures that a commanded target velocity is reached synchronously for all DOFs.
     }
-    float t_cart_plateau = 0.0f;
-    if (cart_error_norm > 0.0f) {
-        t_cart_plateau = cart_error_norm / cart_vel - 0.5f * cart_vel / _cartesian_acc_limit;
-    }
-    float t_angular = std::max(t_angular_plateau, 0.0f) + omega / _angular_acc_limit;
-    float t_cart = std::max(t_cart_plateau, 0.0f) + cart_vel / _cartesian_acc_limit;
-    // logger->logDebug(boost::format("Estimated duration till target, cart: %1%, angular %2%") % t_cart % t_angular, log_prefix);
-    if (t_cart < t_angular) { // we will take more time to reach our angle destination, slow down cartesian
-        float a = _cartesian_acc_limit * t_angular;
-        float b = _cartesian_acc_limit * _cartesian_acc_limit * t_angular * t_angular - 2.0f * _cartesian_acc_limit * cart_error_norm;
-        assert(b >= 0.0f);
-        cart_vel = a - std::sqrt(b);
-    } else { // we will take more time to reach our cartesian destination, slow down angular
-        float a = _angular_acc_limit * t_cart;
-        float b = _angular_acc_limit * _angular_acc_limit * t_cart * t_cart - 2.0f * _angular_acc_limit * angular_error_norm;
-        assert(b >= 0.0f);
-        omega = a - std::sqrt(b);
-    }
-    // logger->logDebug(boost::format("Commanded velocities: cart: %1%, angular: %2%") % cart_vel % omega, log_prefix);
-    // logger->logDebug(boost::format("Cartesian velocity direction (x, y): %1%, %2%") % cart_error[0] % cart_error[1], log_prefix);
-    _set_point.head(2) = cart_vel * cart_error;
-    _set_point[2] = omega * angular_error / angular_error_norm;
-    // TODO We should also define the velocities during acceleration phase. For large position errors and max velocities,
-    // TODO it takes the robot different amount of time to accelerate to the respective target velocity for each DoF.
-    // TODO Hence, the robot will not move all the time in the direction that we command (this depends on the underlying velocity controller of course).
-    // TODO Alternatively, could define a velocity controller that operates in the same way as this position controller, i.e.
-    // TODO one that ensures that a commanded target velocity is reached synchronously for all DOFs.
     _velocity_controller->setTargetVelocity(_set_point);
     _velocity_controller->control(positions, velocities, timestep, robot, output);
     return true;
