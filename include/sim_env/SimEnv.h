@@ -641,6 +641,7 @@ public:
          * @return base link
          */
     virtual LinkPtr getBaseLink() = 0;
+    virtual LinkConstPtr getConstBaseLink() const = 0;
 
     /**
          * Retrieves all joints of this object and adds them to the given list.
