@@ -426,6 +426,7 @@ public:
      * i.e. in m = mu * \int_A |x| p(x) dA, set the value of \int_A |x| p(x) dA.
      */
     virtual void setGroundFrictionTorqueIntegral(float val) = 0;
+    virtual float getGroundFrictionTorqueIntegral() const = 0;
     /**
      *  Return the friction coefficient of this link's surface.
      */
